@@ -224,11 +224,118 @@ button:active {
     color: #6c757d;
 }
 
+/* Dashboard Panel */
+.dashboard-panel {
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    margin: 20px 0;
+    border: 2px solid #e9ecef;
+}
+
+.dashboard-panel h3 {
+    color: #667eea;
+    margin-bottom: 20px;
+    font-size: 1.3rem;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+.dashboard-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    border: 2px solid #e9ecef;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 8px;
+}
+
+.dashboard-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Last Saved Indicator */
+.last-saved-indicator {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin: 10px 0;
+    font-style: italic;
+}
+
+/* Filter Container */
+.filter-container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 20px 0;
+    border: 2px solid #e9ecef;
+}
+
+.filter-row {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-group label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.filter-group input[type="text"],
+.filter-group select {
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    min-height: 42px;
+}
+
+.filter-group button {
+    margin: 0;
+}
+
 /* Portfolio Table */
 .empty-state {
     text-align: center;
     padding: 40px;
     color: #6c757d;
+}
+
+/* Sortable table headers */
+th {
+    position: relative;
+}
+
+th[style*="cursor: pointer"]:hover {
+    background: #5568d3;
 }
 
 table {
@@ -644,6 +751,27 @@ footer {
 
     .tax-rates-section {
         padding: 15px;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .dashboard-card {
+        padding: 15px;
+    }
+
+    .dashboard-value {
+        font-size: 1.3rem;
+    }
+
+    .filter-row {
+        flex-direction: column;
+    }
+
+    .filter-group {
+        width: 100%;
+        min-width: 100%;
     }
 }
 

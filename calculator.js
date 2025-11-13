@@ -28,28 +28,75 @@ let portfolio = [];
 // ============================================================================
 
 /**
+ * Generate unique ID for transactions
+ * @returns {string} Unique ID based on timestamp and random number
+ */
+function generateTransactionId() {
+    return `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
  * Add a transaction to the portfolio
  * @param {Date|string} date - Transaction date
  * @param {string} type - 'buy' or 'sell'
  * @param {string} symbol - Asset symbol
  * @param {number} quantity - Number of shares/units
  * @param {number} price - Price per share/unit
+ * @param {string} id - Optional transaction ID (for updates)
+ * @returns {Object} The added/updated transaction
  */
-function addTransaction(date, type, symbol, quantity, price) {
+function addTransaction(date, type, symbol, quantity, price, id = null) {
     // Convert string date to Date object if needed
     const transactionDate = date instanceof Date ? date : new Date(date);
 
-    portfolio.push({
+    const transaction = {
+        id: id || generateTransactionId(),
         date: transactionDate,
         type: type.toLowerCase(),
         symbol: symbol.toUpperCase(),
         quantity: parseFloat(quantity),
         price: parseFloat(price)
-    });
+    };
+
+    // If ID provided, update existing transaction
+    if (id) {
+        const index = portfolio.findIndex(t => t.id === id);
+        if (index !== -1) {
+            portfolio[index] = transaction;
+            console.log(`Updated transaction: ${type} ${quantity} ${symbol} @ $${price}`);
+        }
+    } else {
+        portfolio.push(transaction);
+        console.log(`Added ${type}: ${quantity} ${symbol} @ $${price} on ${transactionDate.toLocaleDateString()}`);
+    }
 
     saveToStorage();
+    return transaction;
+}
 
-    console.log(`Added ${type}: ${quantity} ${symbol} @ $${price} on ${transactionDate.toLocaleDateString()}`);
+/**
+ * Delete a transaction by ID
+ * @param {string} id - Transaction ID
+ * @returns {boolean} Success status
+ */
+function deleteTransaction(id) {
+    const index = portfolio.findIndex(t => t.id === id);
+    if (index !== -1) {
+        const deleted = portfolio.splice(index, 1)[0];
+        saveToStorage();
+        console.log(`Deleted transaction: ${deleted.type} ${deleted.quantity} ${deleted.symbol}`);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Get transaction by ID
+ * @param {string} id - Transaction ID
+ * @returns {Object|null} Transaction or null if not found
+ */
+function getTransactionById(id) {
+    return portfolio.find(t => t.id === id) || null;
 }
 
 // ============================================================================
@@ -381,6 +428,45 @@ function getPortfolioSummary(symbol) {
 }
 
 /**
+ * Get overall portfolio dashboard summary
+ * @returns {Object} Dashboard statistics
+ */
+function getPortfolioDashboard() {
+    const today = new Date();
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+
+    const buys = portfolio.filter(t => t.type === 'buy');
+    const sells = portfolio.filter(t => t.type === 'sell');
+
+    // Calculate total invested
+    const totalInvested = buys.reduce((sum, t) => sum + (t.quantity * t.price), 0);
+
+    // Get unique symbols
+    const symbols = new Set(portfolio.map(t => t.symbol));
+
+    // Count long-term and short-term holdings
+    const longTermHoldings = buys.filter(t => t.date <= oneYearAgo).length;
+    const shortTermHoldings = buys.filter(t => t.date > oneYearAgo).length;
+
+    // Calculate average cost basis
+    const totalQuantity = buys.reduce((sum, t) => sum + t.quantity, 0);
+    const avgCostBasis = totalQuantity > 0 ? totalInvested / totalQuantity : 0;
+
+    return {
+        totalTransactions: portfolio.length,
+        totalBuys: buys.length,
+        totalSells: sells.length,
+        totalInvested: totalInvested,
+        uniqueAssets: symbols.size,
+        longTermHoldings: longTermHoldings,
+        shortTermHoldings: shortTermHoldings,
+        avgCostBasis: avgCostBasis,
+        symbols: Array.from(symbols).sort()
+    };
+}
+
+/**
  * Get all symbols in portfolio
  * @returns {Array} Array of unique symbols
  */
@@ -421,10 +507,18 @@ function saveToStorage() {
             date: t.date instanceof Date ? t.date.toISOString() : t.date
         }));
 
-        localStorage.setItem('portfolio', JSON.stringify(serialized));
+        localStorage.setItem('taxSimulatorPortfolio', JSON.stringify(serialized));
+        localStorage.setItem('taxSimulatorLastSaved', new Date().toISOString());
         console.log(`Portfolio saved: ${portfolio.length} transactions`);
+        return true;
     } catch (error) {
-        console.error('Error saving to localStorage:', error);
+        if (error.name === 'QuotaExceededError') {
+            console.error('LocalStorage quota exceeded. Unable to save portfolio.');
+            alert('Storage quota exceeded. Please clear some data.');
+        } else {
+            console.error('Error saving to localStorage:', error);
+        }
+        return false;
     }
 }
 
@@ -434,13 +528,15 @@ function saveToStorage() {
  */
 function loadFromStorage() {
     try {
-        const saved = localStorage.getItem('portfolio');
+        const saved = localStorage.getItem('taxSimulatorPortfolio');
         if (saved) {
             const parsed = JSON.parse(saved);
 
             // Convert ISO strings back to Date objects
+            // Add IDs to legacy transactions that don't have them
             portfolio = parsed.map(t => ({
                 ...t,
+                id: t.id || generateTransactionId(),
                 date: new Date(t.date)
             }));
 
@@ -449,8 +545,73 @@ function loadFromStorage() {
         }
     } catch (error) {
         console.error('Error loading from localStorage:', error);
+        alert('Error loading saved portfolio. Data may be corrupted.');
     }
     return false;
+}
+
+/**
+ * Save tax rate preferences to localStorage
+ * @param {number} shortTerm - Short-term tax rate
+ * @param {number} longTerm - Long-term tax rate
+ */
+function saveTaxRates(shortTerm, longTerm) {
+    try {
+        const rates = { shortTerm, longTerm };
+        localStorage.setItem('taxSimulatorRates', JSON.stringify(rates));
+        console.log(`Tax rates saved: ST=${shortTerm}, LT=${longTerm}`);
+        return true;
+    } catch (error) {
+        console.error('Error saving tax rates:', error);
+        return false;
+    }
+}
+
+/**
+ * Load tax rate preferences from localStorage
+ * @returns {Object|null} Tax rates object or null
+ */
+function loadTaxRates() {
+    try {
+        const saved = localStorage.getItem('taxSimulatorRates');
+        if (saved) {
+            const rates = JSON.parse(saved);
+            console.log(`Tax rates loaded: ST=${rates.shortTerm}, LT=${rates.longTerm}`);
+            return rates;
+        }
+    } catch (error) {
+        console.error('Error loading tax rates:', error);
+    }
+    return null;
+}
+
+/**
+ * Get last saved timestamp
+ * @returns {string|null} ISO timestamp or null
+ */
+function getLastSavedTime() {
+    try {
+        return localStorage.getItem('taxSimulatorLastSaved');
+    } catch (error) {
+        return null;
+    }
+}
+
+/**
+ * Clear all saved data from localStorage
+ * @returns {boolean} Success status
+ */
+function clearAllStoredData() {
+    try {
+        localStorage.removeItem('taxSimulatorPortfolio');
+        localStorage.removeItem('taxSimulatorRates');
+        localStorage.removeItem('taxSimulatorLastSaved');
+        console.log('All stored data cleared');
+        return true;
+    } catch (error) {
+        console.error('Error clearing stored data:', error);
+        return false;
+    }
 }
 
 // ============================================================================

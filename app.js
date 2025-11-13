@@ -10,6 +10,13 @@
 // ============================================================================
 
 let comparisonChart = null; // Store chart instance for updates
+let currentlyEditingId = null; // Track transaction being edited
+let currentSort = { column: 'date', direction: 'desc' }; // Sort state
+let currentFilters = {
+    search: '',
+    type: 'all',
+    holdingPeriod: 'all'
+}; // Filter state
 
 // ============================================================================
 // DOM ELEMENTS
@@ -33,6 +40,15 @@ const resultsSection = document.getElementById('results-section');
 const recommendationDiv = document.getElementById('recommendation');
 const taxLotsDetails = document.getElementById('tax-lots-details');
 
+// New UI elements (will be created)
+let dashboardPanel = null;
+let lastSavedIndicator = null;
+let searchInput = null;
+let typeFilter = null;
+let holdingPeriodFilter = null;
+let resetFiltersBtn = null;
+let cancelEditBtn = null;
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -43,14 +59,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set default date to today
     setDefaultDates();
 
+    // Load saved tax rates
+    loadSavedTaxRates();
+
+    // Create dynamic UI elements
+    createDashboardPanel();
+    createLastSavedIndicator();
+    createSearchAndFilterUI();
+    createCancelEditButton();
+
     // Load and display existing portfolio
     refreshPortfolioDisplay();
+    updateDashboard();
 
     // Attach event listeners
     transactionForm.addEventListener('submit', handleTransactionSubmit);
     analysisForm.addEventListener('submit', handleAnalysisSubmit);
     loadExampleBtn.addEventListener('click', loadExamplePortfolio);
     clearPortfolioBtn.addEventListener('click', handleClearPortfolio);
+
+    // Tax rate auto-save
+    document.getElementById('short-term-rate').addEventListener('change', handleTaxRateChange);
+    document.getElementById('long-term-rate').addEventListener('change', handleTaxRateChange);
 
     console.log('Event listeners attached');
     console.log(`Portfolio loaded with ${portfolio.length} transactions`);
@@ -61,7 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================================================
 
 /**
- * Handle transaction form submission
+ * Handle transaction form submission (both add and update)
  */
 function handleTransactionSubmit(e) {
     e.preventDefault();
@@ -95,8 +125,17 @@ function handleTransactionSubmit(e) {
         return;
     }
 
-    // Add transaction using calculator.js function
-    addTransaction(date, type, symbol, quantity, price);
+    // Check if we're editing or adding
+    if (currentlyEditingId) {
+        // Update existing transaction
+        addTransaction(date, type, symbol, quantity, price, currentlyEditingId);
+        showNotification(`Updated ${type} transaction: ${quantity} ${symbol.toUpperCase()} @ $${price}`, 'success');
+        cancelEdit();
+    } else {
+        // Add new transaction
+        addTransaction(date, type, symbol, quantity, price);
+        showNotification(`Added ${type} transaction: ${quantity} ${symbol.toUpperCase()} @ $${price}`, 'success');
+    }
 
     // Clear form
     transactionForm.reset();
@@ -104,13 +143,12 @@ function handleTransactionSubmit(e) {
 
     // Refresh display
     refreshPortfolioDisplay();
-
-    // Show success notification
-    showNotification(`Added ${type} transaction: ${quantity} ${symbol.toUpperCase()} @ $${price}`, 'success');
+    updateDashboard();
+    updateLastSavedIndicator();
 }
 
 /**
- * Refresh the portfolio display table
+ * Refresh the portfolio display table with filtering and sorting
  */
 function refreshPortfolioDisplay() {
     // Check if portfolio is empty
@@ -127,11 +165,78 @@ function refreshPortfolioDisplay() {
     // Clear existing rows
     portfolioTbody.innerHTML = '';
 
-    // Sort portfolio by date (newest first)
-    const sortedPortfolio = [...portfolio].sort((a, b) => b.date - a.date);
+    // Apply filters
+    let filteredPortfolio = [...portfolio];
+
+    // Search filter
+    if (currentFilters.search) {
+        const searchTerm = currentFilters.search.toLowerCase();
+        filteredPortfolio = filteredPortfolio.filter(txn =>
+            txn.symbol.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    // Type filter
+    if (currentFilters.type !== 'all') {
+        filteredPortfolio = filteredPortfolio.filter(txn => txn.type === currentFilters.type);
+    }
+
+    // Holding period filter
+    if (currentFilters.holdingPeriod !== 'all') {
+        const today = new Date();
+        const oneYearAgo = new Date(today);
+        oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+
+        filteredPortfolio = filteredPortfolio.filter(txn => {
+            if (txn.type !== 'buy') return false; // Only applies to buys
+            const isLongTerm = txn.date <= oneYearAgo;
+            return currentFilters.holdingPeriod === 'long-term' ? isLongTerm : !isLongTerm;
+        });
+    }
+
+    // Apply sorting
+    filteredPortfolio.sort((a, b) => {
+        let aVal, bVal;
+
+        switch (currentSort.column) {
+            case 'date':
+                aVal = a.date;
+                bVal = b.date;
+                break;
+            case 'symbol':
+                aVal = a.symbol;
+                bVal = b.symbol;
+                break;
+            case 'type':
+                aVal = a.type;
+                bVal = b.type;
+                break;
+            case 'quantity':
+                aVal = a.quantity;
+                bVal = b.quantity;
+                break;
+            case 'price':
+                aVal = a.price;
+                bVal = b.price;
+                break;
+            default:
+                aVal = a.date;
+                bVal = b.date;
+        }
+
+        if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return currentSort.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // Show "no results" if filtered portfolio is empty
+    if (filteredPortfolio.length === 0) {
+        portfolioTbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #6c757d;">No transactions match your filters</td></tr>';
+        return;
+    }
 
     // Add rows for each transaction
-    sortedPortfolio.forEach((txn) => {
+    filteredPortfolio.forEach((txn) => {
         const row = document.createElement('tr');
         row.className = txn.type === 'buy' ? 'buy-row' : 'sell-row';
 
@@ -144,29 +249,107 @@ function refreshPortfolioDisplay() {
             <td>${formatNumber(txn.quantity)}</td>
             <td>$${formatNumber(txn.price)}</td>
             <td>$${formatNumber(total)}</td>
-            <td><button class="delete-btn danger-btn" data-index="${portfolio.indexOf(txn)}">Delete</button></td>
+            <td>
+                <button class="edit-btn secondary-btn" data-id="${txn.id}" style="margin-right: 5px; padding: 8px 12px; font-size: 14px;">Edit</button>
+                <button class="delete-btn danger-btn" data-id="${txn.id}" style="padding: 8px 12px; font-size: 14px;">Delete</button>
+            </td>
         `;
 
         portfolioTbody.appendChild(row);
     });
 
-    // Attach delete handlers
+    // Attach edit and delete handlers
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', handleEditTransaction);
+    });
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', handleDeleteTransaction);
     });
 }
 
 /**
- * Delete a transaction
+ * Edit a transaction - populate form with transaction data
+ */
+function handleEditTransaction(e) {
+    const id = e.target.dataset.id;
+    const txn = getTransactionById(id);
+
+    if (!txn) {
+        showNotification('Transaction not found', 'error');
+        return;
+    }
+
+    // Populate form fields
+    document.getElementById('txn-date').value = txn.date instanceof Date
+        ? txn.date.toISOString().split('T')[0]
+        : new Date(txn.date).toISOString().split('T')[0];
+    document.getElementById('txn-type').value = txn.type;
+    document.getElementById('txn-symbol').value = txn.symbol;
+    document.getElementById('txn-quantity').value = txn.quantity;
+    document.getElementById('txn-price').value = txn.price;
+
+    // Update state
+    currentlyEditingId = id;
+
+    // Change submit button text
+    const submitBtn = transactionForm.querySelector('button[type="submit"]');
+    submitBtn.textContent = 'Update Transaction';
+    submitBtn.style.background = '#17a2b8';
+
+    // Show cancel button
+    if (cancelEditBtn) {
+        cancelEditBtn.style.display = 'inline-block';
+    }
+
+    // Scroll to form
+    transactionForm.scrollIntoView({ behavior: 'smooth' });
+
+    showNotification('Editing transaction - modify fields and click Update', 'info');
+}
+
+/**
+ * Cancel editing mode
+ */
+function cancelEdit() {
+    currentlyEditingId = null;
+
+    // Reset submit button
+    const submitBtn = transactionForm.querySelector('button[type="submit"]');
+    submitBtn.textContent = 'Add Transaction';
+    submitBtn.style.background = '';
+
+    // Hide cancel button
+    if (cancelEditBtn) {
+        cancelEditBtn.style.display = 'none';
+    }
+
+    // Clear form
+    transactionForm.reset();
+    setDefaultDates();
+}
+
+/**
+ * Delete a transaction by ID
  */
 function handleDeleteTransaction(e) {
-    const index = parseInt(e.target.dataset.index);
+    const id = e.target.dataset.id;
 
     if (confirm('Are you sure you want to delete this transaction?')) {
-        portfolio.splice(index, 1);
-        saveToStorage();
-        refreshPortfolioDisplay();
-        showNotification('Transaction deleted', 'success');
+        const success = deleteTransaction(id);
+
+        if (success) {
+            refreshPortfolioDisplay();
+            updateDashboard();
+            updateLastSavedIndicator();
+            showNotification('Transaction deleted', 'success');
+
+            // If we were editing this transaction, cancel edit mode
+            if (currentlyEditingId === id) {
+                cancelEdit();
+            }
+        } else {
+            showNotification('Failed to delete transaction', 'error');
+        }
     }
 }
 
@@ -189,6 +372,8 @@ function loadExamplePortfolio() {
     addTransaction('2024-08-10', 'buy', 'BTC', 0.2, 52000);
 
     refreshPortfolioDisplay();
+    updateDashboard();
+    updateLastSavedIndicator();
     showNotification('Example portfolio loaded! Try analyzing: sell 0.4 BTC at $55,000', 'success');
 }
 
@@ -204,6 +389,8 @@ function handleClearPortfolio() {
     if (confirm('Are you sure you want to clear all transactions? This cannot be undone.')) {
         clearPortfolio(true);
         refreshPortfolioDisplay();
+        updateDashboard();
+        updateLastSavedIndicator();
         resultsSection.style.display = 'none';
         showNotification('Portfolio cleared', 'success');
     }
@@ -550,6 +737,272 @@ function createComparisonChart(comparison) {
 }
 
 // ============================================================================
+// UI CREATION AND MANAGEMENT
+// ============================================================================
+
+/**
+ * Create dashboard panel showing portfolio statistics
+ */
+function createDashboardPanel() {
+    const portfolioSection = document.getElementById('portfolio-section');
+
+    dashboardPanel = document.createElement('div');
+    dashboardPanel.id = 'dashboard-panel';
+    dashboardPanel.className = 'dashboard-panel';
+    dashboardPanel.innerHTML = `
+        <h3>Portfolio Summary</h3>
+        <div class="dashboard-grid">
+            <div class="dashboard-card">
+                <div class="dashboard-label">Total Transactions</div>
+                <div class="dashboard-value" id="dash-total">0</div>
+            </div>
+            <div class="dashboard-card">
+                <div class="dashboard-label">Total Invested</div>
+                <div class="dashboard-value" id="dash-invested">$0.00</div>
+            </div>
+            <div class="dashboard-card">
+                <div class="dashboard-label">Unique Assets</div>
+                <div class="dashboard-value" id="dash-assets">0</div>
+            </div>
+            <div class="dashboard-card">
+                <div class="dashboard-label">Long-term Holdings</div>
+                <div class="dashboard-value" id="dash-longterm">0</div>
+            </div>
+            <div class="dashboard-card">
+                <div class="dashboard-label">Short-term Holdings</div>
+                <div class="dashboard-value" id="dash-shortterm">0</div>
+            </div>
+            <div class="dashboard-card">
+                <div class="dashboard-label">Avg Cost Basis</div>
+                <div class="dashboard-value" id="dash-avgcost">$0.00</div>
+            </div>
+        </div>
+    `;
+
+    portfolioSection.insertBefore(dashboardPanel, portfolioSection.querySelector('p.section-description').nextSibling);
+}
+
+/**
+ * Create last saved indicator
+ */
+function createLastSavedIndicator() {
+    const portfolioSection = document.getElementById('portfolio-section');
+
+    lastSavedIndicator = document.createElement('div');
+    lastSavedIndicator.id = 'last-saved-indicator';
+    lastSavedIndicator.className = 'last-saved-indicator';
+    lastSavedIndicator.innerHTML = 'Last saved: Never';
+
+    portfolioSection.querySelector('h2').insertAdjacentElement('afterend', lastSavedIndicator);
+}
+
+/**
+ * Create search and filter UI above portfolio table
+ */
+function createSearchAndFilterUI() {
+    const portfolioSection = document.getElementById('portfolio-section');
+
+    const filterContainer = document.createElement('div');
+    filterContainer.className = 'filter-container';
+    filterContainer.innerHTML = `
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="search-input">Search Symbol</label>
+                <input type="text" id="search-input" placeholder="Search by symbol..." />
+            </div>
+            <div class="filter-group">
+                <label for="type-filter">Transaction Type</label>
+                <select id="type-filter">
+                    <option value="all">All Types</option>
+                    <option value="buy">Buy Only</option>
+                    <option value="sell">Sell Only</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="holding-filter">Holding Period</label>
+                <select id="holding-filter">
+                    <option value="all">All Holdings</option>
+                    <option value="long-term">Long-term (>365 days)</option>
+                    <option value="short-term">Short-term (≤365 days)</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <button id="reset-filters-btn" class="secondary-btn">Reset Filters</button>
+            </div>
+        </div>
+    `;
+
+    portfolioSection.insertBefore(filterContainer, document.getElementById('portfolio-empty'));
+
+    // Get references
+    searchInput = document.getElementById('search-input');
+    typeFilter = document.getElementById('type-filter');
+    holdingPeriodFilter = document.getElementById('holding-filter');
+    resetFiltersBtn = document.getElementById('reset-filters-btn');
+
+    // Attach event listeners
+    searchInput.addEventListener('input', handleSearch);
+    typeFilter.addEventListener('change', handleFilterChange);
+    holdingPeriodFilter.addEventListener('change', handleFilterChange);
+    resetFiltersBtn.addEventListener('click', resetFilters);
+
+    // Make table headers sortable
+    const headers = portfolioTable.querySelectorAll('th');
+    headers.forEach((header, index) => {
+        const columns = ['date', 'type', 'symbol', 'quantity', 'price', 'total', 'action'];
+        const column = columns[index];
+
+        if (column !== 'action' && column !== 'total') {
+            header.style.cursor = 'pointer';
+            header.style.userSelect = 'none';
+            header.addEventListener('click', () => handleSort(column));
+            header.title = `Click to sort by ${column}`;
+        }
+    });
+}
+
+/**
+ * Create cancel edit button in transaction form
+ */
+function createCancelEditButton() {
+    const submitBtn = transactionForm.querySelector('button[type="submit"]');
+
+    cancelEditBtn = document.createElement('button');
+    cancelEditBtn.type = 'button';
+    cancelEditBtn.textContent = 'Cancel Edit';
+    cancelEditBtn.className = 'secondary-btn';
+    cancelEditBtn.style.display = 'none';
+    cancelEditBtn.addEventListener('click', cancelEdit);
+
+    submitBtn.insertAdjacentElement('afterend', cancelEditBtn);
+}
+
+/**
+ * Update dashboard with current portfolio stats
+ */
+function updateDashboard() {
+    if (!dashboardPanel) return;
+
+    const stats = getPortfolioDashboard();
+
+    document.getElementById('dash-total').textContent = stats.totalTransactions;
+    document.getElementById('dash-invested').textContent = '$' + formatNumber(stats.totalInvested);
+    document.getElementById('dash-assets').textContent = stats.uniqueAssets;
+    document.getElementById('dash-longterm').textContent = stats.longTermHoldings;
+    document.getElementById('dash-shortterm').textContent = stats.shortTermHoldings;
+    document.getElementById('dash-avgcost').textContent = '$' + formatNumber(stats.avgCostBasis);
+}
+
+/**
+ * Update last saved timestamp indicator
+ */
+function updateLastSavedIndicator() {
+    if (!lastSavedIndicator) return;
+
+    const lastSaved = getLastSavedTime();
+
+    if (lastSaved) {
+        const date = new Date(lastSaved);
+        const timeAgo = getTimeAgo(date);
+        lastSavedIndicator.innerHTML = `💾 Last saved: ${timeAgo}`;
+        lastSavedIndicator.style.color = '#28a745';
+    } else {
+        lastSavedIndicator.innerHTML = '💾 Last saved: Never';
+        lastSavedIndicator.style.color = '#6c757d';
+    }
+}
+
+/**
+ * Load saved tax rates from localStorage
+ */
+function loadSavedTaxRates() {
+    const rates = loadTaxRates();
+
+    if (rates) {
+        document.getElementById('short-term-rate').value = rates.shortTerm;
+        document.getElementById('long-term-rate').value = rates.longTerm;
+        console.log('Loaded saved tax rates:', rates);
+    }
+}
+
+/**
+ * Handle tax rate changes - auto-save
+ */
+function handleTaxRateChange() {
+    const shortTerm = parseFloat(document.getElementById('short-term-rate').value);
+    const longTerm = parseFloat(document.getElementById('long-term-rate').value);
+
+    if (!isNaN(shortTerm) && !isNaN(longTerm)) {
+        saveTaxRates(shortTerm, longTerm);
+        showNotification('Tax rates saved', 'success');
+    }
+}
+
+/**
+ * Handle sorting
+ */
+function handleSort(column) {
+    if (currentSort.column === column) {
+        // Toggle direction
+        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        // New column, default to ascending
+        currentSort.column = column;
+        currentSort.direction = 'asc';
+    }
+
+    refreshPortfolioDisplay();
+
+    // Update visual indicators
+    const headers = portfolioTable.querySelectorAll('th');
+    headers.forEach(header => {
+        header.textContent = header.textContent.replace(' ▲', '').replace(' ▼', '');
+    });
+
+    const columns = ['date', 'type', 'symbol', 'quantity', 'price', 'total', 'action'];
+    const headerIndex = columns.indexOf(column);
+    if (headerIndex !== -1) {
+        const header = headers[headerIndex];
+        header.textContent += currentSort.direction === 'asc' ? ' ▲' : ' ▼';
+    }
+}
+
+/**
+ * Handle search input
+ */
+function handleSearch(e) {
+    currentFilters.search = e.target.value.trim();
+    refreshPortfolioDisplay();
+}
+
+/**
+ * Handle filter changes
+ */
+function handleFilterChange() {
+    currentFilters.type = typeFilter.value;
+    currentFilters.holdingPeriod = holdingPeriodFilter.value;
+    refreshPortfolioDisplay();
+}
+
+/**
+ * Reset all filters
+ */
+function resetFilters() {
+    currentFilters = {
+        search: '',
+        type: 'all',
+        holdingPeriod: 'all'
+    };
+
+    searchInput.value = '';
+    typeFilter.value = 'all';
+    holdingPeriodFilter.value = 'all';
+
+    refreshPortfolioDisplay();
+    showNotification('Filters reset', 'info');
+}
+
+// ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
@@ -577,6 +1030,32 @@ function formatNumber(num) {
     return num.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 8
+    });
+}
+
+/**
+ * Get time ago string (e.g., "2 minutes ago")
+ */
+function getTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+
+    if (seconds < 60) return 'Just now';
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
     });
 }
 
