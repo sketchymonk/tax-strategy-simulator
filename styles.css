@@ -66,27 +66,53 @@ section {
     background: #f8f9fa;
 }
 
+.section-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
 /* Forms */
 form {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 15px;
 }
 
 .form-row {
     display: flex;
-    gap: 10px;
+    gap: 15px;
     width: 100%;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 200px;
+}
+
+label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+    font-size: 0.95rem;
+}
+
+.field-hint {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 4px;
+    font-style: italic;
 }
 
 input, select {
     padding: 12px;
-    margin: 5px;
     border: 2px solid #ddd;
     border-radius: 8px;
     font-size: 16px;
     min-height: 44px; /* iPad touch target */
-    flex: 1;
     transition: border-color 0.3s, box-shadow 0.3s;
 }
 
@@ -141,6 +167,61 @@ button:active {
     padding: 8px 12px;
     font-size: 14px;
     min-height: auto;
+}
+
+/* Action Buttons Container */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+/* Tax Rates Section */
+.tax-rates-section {
+    width: 100%;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 15px;
+    border: 2px solid #e9ecef;
+}
+
+.tax-rates-section h3 {
+    color: #667eea;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+.tax-rates-info {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+
+.tax-rates-help {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    font-size: 0.9rem;
+}
+
+.tax-rates-help strong {
+    color: #667eea;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.tax-rates-help ul {
+    margin-left: 20px;
+    margin-top: 8px;
+}
+
+.tax-rates-help li {
+    margin-bottom: 5px;
+    color: #6c757d;
 }
 
 /* Portfolio Table */
@@ -247,6 +328,14 @@ tbody tr:hover {
     font-size: 0.7rem;
     color: #6c757d;
     font-weight: normal;
+}
+
+.method-description {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: normal;
+    margin-top: 8px;
+    line-height: 1.4;
 }
 
 .result-content {
@@ -520,9 +609,21 @@ footer {
         flex-direction: column;
     }
 
+    .form-group {
+        width: 100%;
+        min-width: 100%;
+    }
+
     input, select, button {
         width: 100%;
-        margin: 5px 0;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .action-buttons button {
+        width: 100%;
     }
 
     table {
@@ -539,6 +640,10 @@ footer {
 
     .savings-amount {
         font-size: 2rem;
+    }
+
+    .tax-rates-section {
+        padding: 15px;
     }
 }
 

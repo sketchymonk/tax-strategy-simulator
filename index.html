@@ -19,26 +19,56 @@
             <!-- Input Section -->
             <section id="input-section">
                 <h2>Add Transactions</h2>
+                <p class="section-description">Record your buy and sell transactions to build your portfolio.</p>
+
                 <form id="transaction-form">
-                    <input type="date" id="txn-date" required>
-                    <select id="txn-type" required>
-                        <option value="buy">Buy</option>
-                        <option value="sell">Sell</option>
-                    </select>
-                    <input type="text" id="txn-symbol" placeholder="Symbol (e.g., BTC)" required>
-                    <input type="number" id="txn-quantity" placeholder="Quantity" step="0.00000001" required>
-                    <input type="number" id="txn-price" placeholder="Price per unit" step="0.01" required>
+                    <div class="form-group">
+                        <label for="txn-date">Transaction Date</label>
+                        <input type="date" id="txn-date" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="txn-type">Transaction Type</label>
+                        <select id="txn-type" required>
+                            <option value="buy">Buy (Purchase)</option>
+                            <option value="sell">Sell (Dispose)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="txn-symbol">Asset Symbol</label>
+                        <input type="text" id="txn-symbol" placeholder="e.g., BTC, AAPL, ETH" required>
+                        <span class="field-hint">Stock ticker or crypto symbol</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="txn-quantity">Quantity</label>
+                        <input type="number" id="txn-quantity" placeholder="0.00000000" step="0.00000001" required>
+                        <span class="field-hint">Number of shares or units purchased/sold</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="txn-price">Price Per Unit</label>
+                        <input type="number" id="txn-price" placeholder="0.00" step="0.01" required>
+                        <span class="field-hint">Price per share/unit in USD</span>
+                    </div>
+
                     <button type="submit">Add Transaction</button>
                 </form>
-                <button id="load-example" class="secondary-btn">Load Example Portfolio</button>
-                <button id="clear-portfolio" class="danger-btn">Clear Portfolio</button>
+
+                <div class="action-buttons">
+                    <button id="load-example" class="secondary-btn">Load Example Portfolio</button>
+                    <button id="clear-portfolio" class="danger-btn">Clear All Transactions</button>
+                </div>
             </section>
 
             <!-- Portfolio Display -->
             <section id="portfolio-section">
                 <h2>Your Portfolio</h2>
+                <p class="section-description">All your recorded transactions appear below.</p>
+
                 <div id="portfolio-empty" class="empty-state">
-                    <p>No transactions yet. Add your first transaction above!</p>
+                    <p>📝 No transactions yet. Add your first transaction above or load the example portfolio!</p>
                 </div>
                 <table id="portfolio-table" style="display:none;">
                     <thead>
@@ -59,43 +89,101 @@
             <!-- Analysis Section -->
             <section id="analysis-section">
                 <h2>Tax Strategy Analysis</h2>
+                <p class="section-description">
+                    Compare tax strategies for a hypothetical sale. We'll calculate your tax liability using
+                    FIFO (First In, First Out), LIFO (Last In, First Out), and HIFO (Highest In, First Out) methods.
+                </p>
+
                 <form id="analysis-form">
                     <div class="form-row">
-                        <input type="text" id="sell-symbol" placeholder="Symbol to analyze" required>
-                        <input type="number" id="sell-quantity" placeholder="Quantity to sell" step="0.00000001" required>
+                        <div class="form-group">
+                            <label for="sell-symbol">Asset Symbol to Analyze</label>
+                            <input type="text" id="sell-symbol" placeholder="e.g., BTC" required>
+                            <span class="field-hint">Must match a symbol in your portfolio</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sell-quantity">Quantity to Sell</label>
+                            <input type="number" id="sell-quantity" placeholder="0.00000000" step="0.00000001" required>
+                            <span class="field-hint">How many units you want to sell</span>
+                        </div>
                     </div>
+
                     <div class="form-row">
-                        <input type="number" id="sell-price" placeholder="Sell price" step="0.01" required>
-                        <input type="date" id="sell-date" required>
+                        <div class="form-group">
+                            <label for="sell-price">Sale Price Per Unit</label>
+                            <input type="number" id="sell-price" placeholder="0.00" step="0.01" required>
+                            <span class="field-hint">Expected or actual selling price</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sell-date">Sale Date</label>
+                            <input type="date" id="sell-date" required>
+                            <span class="field-hint">Date of sale (cannot be in future)</span>
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <input type="number" id="short-term-rate" placeholder="Short-term tax rate (e.g., 0.32)" step="0.01" value="0.32" required>
-                        <input type="number" id="long-term-rate" placeholder="Long-term tax rate (e.g., 0.15)" step="0.01" value="0.15" required>
+
+                    <div class="tax-rates-section">
+                        <h3>Your Tax Rates</h3>
+                        <p class="tax-rates-info">
+                            Enter your tax rates as decimals (e.g., 0.32 for 32%). Your rates depend on your income bracket.
+                        </p>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="short-term-rate">Short-Term Capital Gains Rate</label>
+                                <input type="number" id="short-term-rate" placeholder="0.32" step="0.01" min="0" max="1" value="0.32" required>
+                                <span class="field-hint">For assets held ≤365 days (taxed as ordinary income)</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="long-term-rate">Long-Term Capital Gains Rate</label>
+                                <input type="number" id="long-term-rate" placeholder="0.15" step="0.01" min="0" max="1" value="0.15" required>
+                                <span class="field-hint">For assets held >365 days (preferential rate: 0%, 15%, or 20%)</span>
+                            </div>
+                        </div>
+
+                        <div class="tax-rates-help">
+                            <strong>Common Tax Rates (2024):</strong>
+                            <ul>
+                                <li>Short-term: 10%, 12%, 22%, 24%, 32%, 35%, or 37% (based on income)</li>
+                                <li>Long-term: 0%, 15%, or 20% (based on income)</li>
+                            </ul>
+                        </div>
                     </div>
+
                     <button type="submit">Calculate Tax Scenarios</button>
                 </form>
             </section>
 
             <!-- Results Display -->
             <section id="results-section" style="display:none;">
-                <h2>Results</h2>
+                <h2>Results: Tax Strategy Comparison</h2>
+                <p class="section-description">
+                    Below are three different tax lot accounting methods. The best method (lowest tax) is highlighted in green.
+                </p>
+
                 <div class="results-grid">
                     <div class="result-card" id="fifo-card">
                         <h3>FIFO <span class="method-label">(First In, First Out)</span></h3>
+                        <p class="method-description">Matches your sale against the oldest purchases first. This is the IRS default method.</p>
                         <div class="result-content"></div>
                     </div>
                     <div class="result-card" id="lifo-card">
                         <h3>LIFO <span class="method-label">(Last In, First Out)</span></h3>
+                        <p class="method-description">Matches your sale against the newest purchases first.</p>
                         <div class="result-content"></div>
                     </div>
                     <div class="result-card" id="hifo-card">
                         <h3>HIFO <span class="method-label">(Highest In, First Out)</span></h3>
+                        <p class="method-description">Matches your sale against the highest-cost purchases first. Often the most tax-efficient.</p>
                         <div class="result-content"></div>
                     </div>
                 </div>
                 <div id="recommendation"></div>
                 <div id="tax-lots-details"></div>
                 <div class="chart-container">
+                    <h3>Visual Comparison</h3>
                     <canvas id="comparison-chart"></canvas>
                 </div>
             </section>
