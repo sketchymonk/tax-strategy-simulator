@@ -58,8 +58,11 @@
 
                 <div class="action-buttons">
                     <button id="load-example" class="secondary-btn">Load Example Portfolio</button>
+                    <button id="export-csv" class="secondary-btn">📥 Export to CSV</button>
+                    <button id="import-csv-btn" class="secondary-btn">📤 Import from CSV</button>
                     <button id="clear-portfolio" class="danger-btn">Clear All Transactions</button>
                 </div>
+                <input type="file" id="import-csv-input" accept=".csv" style="display: none;">
             </section>
 
             <!-- Portfolio Display -->
@@ -160,7 +163,7 @@
             <section id="results-section" style="display:none;">
                 <h2>Results: Tax Strategy Comparison</h2>
                 <p class="section-description">
-                    Below are three different tax lot accounting methods. The best method (lowest tax) is highlighted in green.
+                    Below are four different tax lot accounting methods. The best method (lowest tax) is highlighted in green.
                 </p>
 
                 <div class="results-grid">
@@ -177,6 +180,16 @@
                     <div class="result-card" id="hifo-card">
                         <h3>HIFO <span class="method-label">(Highest In, First Out)</span></h3>
                         <p class="method-description">Matches your sale against the highest-cost purchases first. Often the most tax-efficient.</p>
+                        <div class="result-content"></div>
+                    </div>
+                    <div class="result-card" id="spec-id-card">
+                        <h3>Specific ID <span class="method-label">(Custom Selection)</span></h3>
+                        <p class="method-description">
+                            Select specific lots manually for maximum control.
+                            <button id="select-lots-btn" class="secondary-btn" style="margin-top: 10px; font-size: 0.9rem;" disabled>
+                                📋 Select Lots
+                            </button>
+                        </p>
                         <div class="result-content"></div>
                     </div>
                 </div>

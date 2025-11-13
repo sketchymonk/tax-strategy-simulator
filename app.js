@@ -34,6 +34,9 @@ const portfolioEmpty = document.getElementById('portfolio-empty');
 // Buttons
 const loadExampleBtn = document.getElementById('load-example');
 const clearPortfolioBtn = document.getElementById('clear-portfolio');
+const exportCsvBtn = document.getElementById('export-csv');
+const importCsvBtn = document.getElementById('import-csv-btn');
+const importCsvInput = document.getElementById('import-csv-input');
 
 // Results section
 const resultsSection = document.getElementById('results-section');
@@ -77,6 +80,9 @@ document.addEventListener('DOMContentLoaded', function() {
     analysisForm.addEventListener('submit', handleAnalysisSubmit);
     loadExampleBtn.addEventListener('click', loadExamplePortfolio);
     clearPortfolioBtn.addEventListener('click', handleClearPortfolio);
+    exportCsvBtn.addEventListener('click', exportToCSV);
+    importCsvBtn.addEventListener('click', () => importCsvInput.click());
+    importCsvInput.addEventListener('change', handleImportCSV);
 
     // Tax rate auto-save
     document.getElementById('short-term-rate').addEventListener('change', handleTaxRateChange);
@@ -235,6 +241,9 @@ function refreshPortfolioDisplay() {
         return;
     }
 
+    // Get wash sale flags
+    const washSaleFlags = getWashSaleFlags();
+
     // Add rows for each transaction
     filteredPortfolio.forEach((txn) => {
         const row = document.createElement('tr');
@@ -242,8 +251,19 @@ function refreshPortfolioDisplay() {
 
         const total = (txn.quantity * txn.price).toFixed(2);
 
+        // Check for wash sale
+        const washSaleInfo = washSaleFlags.get(txn.id);
+        const washSaleBadge = washSaleInfo
+            ? `<span class="wash-sale-badge" title="Wash Sale: $${formatNumber(washSaleInfo.disallowedLoss)} loss disallowed">⚠️ Wash Sale</span>`
+            : '';
+
+        // Add wash sale class to row if applicable
+        if (washSaleInfo) {
+            row.classList.add('wash-sale-row');
+        }
+
         row.innerHTML = `
-            <td>${formatDate(txn.date)}</td>
+            <td>${formatDate(txn.date)} ${washSaleBadge}</td>
             <td><span class="badge badge-${txn.type}">${txn.type.toUpperCase()}</span></td>
             <td><strong>${txn.symbol}</strong></td>
             <td>${formatNumber(txn.quantity)}</td>
@@ -265,6 +285,9 @@ function refreshPortfolioDisplay() {
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', handleDeleteTransaction);
     });
+
+    // Update wash sale panel
+    updateWashSalePanel();
 }
 
 /**
@@ -394,6 +417,300 @@ function handleClearPortfolio() {
         resultsSection.style.display = 'none';
         showNotification('Portfolio cleared', 'success');
     }
+}
+
+// ============================================================================
+// CSV IMPORT/EXPORT
+// ============================================================================
+
+/**
+ * Export portfolio to CSV file
+ */
+function exportToCSV() {
+    if (portfolio.length === 0) {
+        showNotification('Portfolio is empty - nothing to export', 'info');
+        return;
+    }
+
+    // CSV header
+    const headers = ['Date', 'Type', 'Symbol', 'Quantity', 'Price', 'Total Value'];
+
+    // Convert transactions to CSV rows
+    const rows = portfolio.map(txn => {
+        const date = txn.date instanceof Date
+            ? txn.date.toISOString().split('T')[0]
+            : new Date(txn.date).toISOString().split('T')[0];
+        const total = (txn.quantity * txn.price).toFixed(2);
+
+        return [
+            date,
+            txn.type.toUpperCase(),
+            txn.symbol,
+            txn.quantity,
+            txn.price,
+            total
+        ].map(field => `"${field}"`).join(','); // Quote all fields
+    });
+
+    // Combine header and rows
+    const csvContent = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n'); // UTF-8 BOM for Excel
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    const today = new Date().toISOString().split('T')[0];
+    link.href = url;
+    link.download = `tax-portfolio-${today}.csv`;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showNotification(`Exported ${portfolio.length} transactions to CSV`, 'success');
+}
+
+/**
+ * Handle CSV file import
+ */
+function handleImportCSV(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(event) {
+        const csvContent = event.target.result;
+        parseAndImportCSV(csvContent);
+    };
+
+    reader.onerror = function() {
+        showNotification('Error reading file', 'error');
+    };
+
+    reader.readAsText(file);
+
+    // Reset file input so same file can be imported again
+    e.target.value = '';
+}
+
+/**
+ * Parse CSV content and import transactions
+ */
+function parseAndImportCSV(csvContent) {
+    try {
+        // Remove UTF-8 BOM if present
+        if (csvContent.charCodeAt(0) === 0xFEFF) {
+            csvContent = csvContent.slice(1);
+        }
+
+        // Split into lines
+        const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
+
+        if (lines.length < 2) {
+            showNotification('CSV file is empty or invalid', 'error');
+            return;
+        }
+
+        // Parse header
+        const header = lines[0];
+        const hasHeader = header.toLowerCase().includes('date') || header.toLowerCase().includes('type');
+
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+
+        const validTransactions = [];
+        const errors = [];
+
+        // Parse each line
+        dataLines.forEach((line, index) => {
+            const lineNum = index + (hasHeader ? 2 : 1);
+
+            try {
+                // Simple CSV parser that handles quoted fields
+                const fields = parseCSVLine(line);
+
+                if (fields.length < 5) {
+                    errors.push(`Line ${lineNum}: Not enough fields (need Date, Type, Symbol, Quantity, Price)`);
+                    return;
+                }
+
+                const [dateStr, type, symbol, quantityStr, priceStr] = fields;
+
+                // Validate date
+                const date = new Date(dateStr);
+                if (isNaN(date.getTime())) {
+                    errors.push(`Line ${lineNum}: Invalid date "${dateStr}"`);
+                    return;
+                }
+
+                // Validate type
+                const normalizedType = type.toLowerCase().trim();
+                if (normalizedType !== 'buy' && normalizedType !== 'sell') {
+                    errors.push(`Line ${lineNum}: Type must be "buy" or "sell", got "${type}"`);
+                    return;
+                }
+
+                // Validate symbol
+                if (!symbol || symbol.trim() === '') {
+                    errors.push(`Line ${lineNum}: Symbol cannot be empty`);
+                    return;
+                }
+
+                // Validate quantity
+                const quantity = parseFloat(quantityStr);
+                if (isNaN(quantity) || quantity <= 0) {
+                    errors.push(`Line ${lineNum}: Invalid quantity "${quantityStr}" (must be positive number)`);
+                    return;
+                }
+
+                // Validate price
+                const price = parseFloat(priceStr);
+                if (isNaN(price) || price <= 0) {
+                    errors.push(`Line ${lineNum}: Invalid price "${priceStr}" (must be positive number)`);
+                    return;
+                }
+
+                validTransactions.push({
+                    date: date,
+                    type: normalizedType,
+                    symbol: symbol.trim().toUpperCase(),
+                    quantity: quantity,
+                    price: price
+                });
+
+            } catch (err) {
+                errors.push(`Line ${lineNum}: ${err.message}`);
+            }
+        });
+
+        // Show import preview dialog
+        showImportPreview(validTransactions, errors);
+
+    } catch (err) {
+        showNotification(`Error parsing CSV: ${err.message}`, 'error');
+    }
+}
+
+/**
+ * Parse a single CSV line handling quoted fields
+ */
+function parseCSVLine(line) {
+    const fields = [];
+    let currentField = '';
+    let insideQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            // Toggle quote state
+            insideQuotes = !insideQuotes;
+        } else if (char === ',' && !insideQuotes) {
+            // Field separator (outside quotes)
+            fields.push(currentField.trim());
+            currentField = '';
+        } else {
+            currentField += char;
+        }
+    }
+
+    // Add last field
+    fields.push(currentField.trim());
+
+    return fields;
+}
+
+/**
+ * Show import preview dialog
+ */
+function showImportPreview(validTransactions, errors) {
+    const hasErrors = errors.length > 0;
+    const errorSummary = hasErrors
+        ? `<div class="import-errors"><h4>⚠️ ${errors.length} Error${errors.length !== 1 ? 's' : ''} Found:</h4><ul>${errors.slice(0, 10).map(err => `<li>${err}</li>`).join('')}${errors.length > 10 ? `<li>...and ${errors.length - 10} more</li>` : ''}</ul></div>`
+        : '';
+
+    const message = `
+        <div class="import-preview">
+            <h3>Import Preview</h3>
+            <p><strong>${validTransactions.length}</strong> valid transaction${validTransactions.length !== 1 ? 's' : ''} found</p>
+            ${errorSummary}
+            <div class="import-options">
+                <p>How would you like to import these transactions?</p>
+                <button id="import-append" class="secondary-btn">📎 Append to Existing</button>
+                <button id="import-replace" class="danger-btn">🔄 Replace Portfolio</button>
+                <button id="import-cancel" class="secondary-btn">Cancel</button>
+            </div>
+        </div>
+    `;
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'import-modal';
+    modal.innerHTML = `
+        <div class="import-modal-content">
+            ${message}
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Attach event listeners
+    document.getElementById('import-append').addEventListener('click', () => {
+        importTransactions(validTransactions, false);
+        document.body.removeChild(modal);
+    });
+
+    document.getElementById('import-replace').addEventListener('click', () => {
+        if (confirm('This will delete all existing transactions. Are you sure?')) {
+            importTransactions(validTransactions, true);
+            document.body.removeChild(modal);
+        }
+    });
+
+    document.getElementById('import-cancel').addEventListener('click', () => {
+        document.body.removeChild(modal);
+        showNotification('Import cancelled', 'info');
+    });
+}
+
+/**
+ * Import transactions into portfolio
+ */
+function importTransactions(transactions, replaceExisting) {
+    if (replaceExisting) {
+        clearPortfolio(true);
+    }
+
+    let imported = 0;
+    let duplicates = 0;
+
+    transactions.forEach(txn => {
+        // Check for duplicate (same date, symbol, quantity, price, type)
+        const isDuplicate = portfolio.some(existing =>
+            existing.date.getTime() === txn.date.getTime() &&
+            existing.symbol === txn.symbol &&
+            existing.quantity === txn.quantity &&
+            existing.price === txn.price &&
+            existing.type === txn.type
+        );
+
+        if (!isDuplicate) {
+            addTransaction(txn.date, txn.type, txn.symbol, txn.quantity, txn.price);
+            imported++;
+        } else {
+            duplicates++;
+        }
+    });
+
+    refreshPortfolioDisplay();
+    updateDashboard();
+    updateLastSavedIndicator();
+
+    const msg = `Imported ${imported} transaction${imported !== 1 ? 's' : ''}${duplicates > 0 ? ` (${duplicates} duplicate${duplicates !== 1 ? 's' : ''} skipped)` : ''}`;
+    showNotification(msg, 'success');
 }
 
 // ============================================================================
@@ -780,6 +1097,109 @@ function createDashboardPanel() {
     `;
 
     portfolioSection.insertBefore(dashboardPanel, portfolioSection.querySelector('p.section-description').nextSibling);
+}
+
+/**
+ * Create and update wash sale details panel
+ */
+function updateWashSalePanel() {
+    const washSales = detectAllWashSales();
+    let washSalePanel = document.getElementById('wash-sale-panel');
+
+    // If no wash sales, remove panel if it exists
+    if (washSales.length === 0) {
+        if (washSalePanel) {
+            washSalePanel.remove();
+        }
+        return;
+    }
+
+    // Create panel if it doesn't exist
+    if (!washSalePanel) {
+        washSalePanel = document.createElement('div');
+        washSalePanel.id = 'wash-sale-panel';
+        washSalePanel.className = 'wash-sale-details-panel';
+
+        const portfolioSection = document.getElementById('portfolio-section');
+        const filterContainer = document.querySelector('.filter-container');
+        portfolioSection.insertBefore(washSalePanel, filterContainer);
+    }
+
+    // Build wash sale details HTML
+    let html = `
+        <h3>⚠️ Wash Sale Alert</h3>
+        <p class="wash-sale-warning">
+            <strong>${washSales.length}</strong> potential wash sale${washSales.length !== 1 ? 's' : ''} detected in your portfolio.
+            These sales have losses that may be disallowed by the IRS.
+            <a href="https://www.irs.gov/publications/p550#en_US_2023_publink1000107223" target="_blank" rel="noopener">Learn more about wash sales</a>
+        </p>
+    `;
+
+    washSales.forEach((ws, index) => {
+        html += `
+            <div class="wash-sale-item">
+                <h4>Wash Sale #${index + 1}: ${ws.symbol}</h4>
+                <div class="wash-sale-summary">
+                    <div class="wash-sale-detail">
+                        <span class="label">Sale Date:</span>
+                        <span class="value">${formatDate(ws.sellDate)}</span>
+                    </div>
+                    <div class="wash-sale-detail">
+                        <span class="label">Quantity Sold:</span>
+                        <span class="value">${formatNumber(ws.quantity)}</span>
+                    </div>
+                    <div class="wash-sale-detail">
+                        <span class="label">Sale Price:</span>
+                        <span class="value">$${formatNumber(ws.salePrice)}</span>
+                    </div>
+                    <div class="wash-sale-detail">
+                        <span class="label">Total Loss:</span>
+                        <span class="value negative">$${formatNumber(ws.totalLoss)}</span>
+                    </div>
+                    <div class="wash-sale-detail">
+                        <span class="label">Disallowed Loss:</span>
+                        <span class="value" style="color: #e65100; font-weight: bold;">$${formatNumber(ws.disallowedLoss)}</span>
+                    </div>
+                    <div class="wash-sale-detail">
+                        <span class="label">Allowed Loss:</span>
+                        <span class="value">$${formatNumber(ws.allowedLoss)}</span>
+                    </div>
+                </div>
+                <div class="replacement-buys">
+                    <strong>Replacement Purchases (within 30 days):</strong>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Days from Sale</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${ws.replacementBuys.map(rb => `
+                                <tr>
+                                    <td>${formatDate(rb.date)}</td>
+                                    <td>${formatNumber(rb.quantity)}</td>
+                                    <td>$${formatNumber(rb.price)}</td>
+                                    <td>${rb.daysFromSale} days ${rb.date > ws.sellDate ? 'after' : 'before'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ${ws.adjustedCostBasis > 0 ? `
+                    <div class="wash-sale-warning" style="margin-top: 10px;">
+                        <strong>Cost Basis Adjustment:</strong> The disallowed loss of $${formatNumber(ws.disallowedLoss)}
+                        must be added to the cost basis of your replacement shares
+                        ($${formatNumber(ws.adjustedCostBasis)} per share).
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+
+    washSalePanel.innerHTML = html;
 }
 
 /**

@@ -334,6 +334,114 @@ function detectWashSale(sellDate, symbol, transactions = portfolio) {
 // ============================================================================
 
 /**
+ * Calculate using Specific Identification method with custom lot selection
+ * @param {Array} selectedLots - Array of {lot, quantity} pairs selected by user
+ * @param {number} sellPrice - Sale price per unit
+ * @param {Date} sellDate - Date of sale
+ * @returns {Object} Calculation results with tax lots
+ */
+function calculateSpecificID(selectedLots, sellPrice, sellDate) {
+    const taxLots = [];
+    let totalCostBasis = 0;
+    let totalQuantity = 0;
+
+    // Process each selected lot
+    selectedLots.forEach(selection => {
+        const lot = selection.lot;
+        const quantity = selection.quantity;
+
+        // Calculate holding period
+        const daysHeld = Math.floor((sellDate - lot.date) / (1000 * 60 * 60 * 24));
+        const gainType = daysHeld > 365 ? 'long-term' : 'short-term';
+
+        // Calculate gain/loss for this lot
+        const costBasis = quantity * lot.price;
+        const proceeds = quantity * sellPrice;
+        const gainLoss = proceeds - costBasis;
+
+        totalCostBasis += costBasis;
+        totalQuantity += quantity;
+
+        taxLots.push({
+            buyDate: lot.date,
+            buyPrice: lot.price,
+            quantity: quantity,
+            daysHeld: daysHeld,
+            gainType: gainType,
+            costBasis: costBasis,
+            proceeds: proceeds,
+            gainLoss: gainLoss
+        });
+    });
+
+    // Classify gains as short-term or long-term
+    const classified = classifyGains(taxLots);
+
+    return {
+        method: 'Specific ID',
+        costBasis: totalCostBasis,
+        proceeds: totalQuantity * sellPrice,
+        gainLoss: (totalQuantity * sellPrice) - totalCostBasis,
+        shortTermGain: classified.shortTermGain,
+        longTermGain: classified.longTermGain,
+        taxLots: taxLots
+    };
+}
+
+/**
+ * Get available lots for a symbol that can be sold
+ * @param {string} symbol - Asset symbol
+ * @param {Date} sellDate - Date of intended sale
+ * @returns {Array} Available lots with remaining quantities
+ */
+function getAvailableLots(symbol, sellDate) {
+    // Get all buys for this symbol before sell date
+    const buys = portfolio
+        .filter(t => t.type === 'buy' && t.symbol === symbol && t.date <= sellDate)
+        .sort((a, b) => a.date - b.date);
+
+    // Get all sells for this symbol before this sell date
+    const sells = portfolio
+        .filter(t => t.type === 'sell' && t.symbol === symbol && t.date < sellDate)
+        .sort((a, b) => a.date - b.date);
+
+    // Calculate remaining quantities using FIFO to track what's been sold
+    const availableLots = [];
+    const buyLots = buys.map(b => ({ ...b, remaining: b.quantity }));
+
+    // Subtract sold quantities using FIFO
+    sells.forEach(sell => {
+        let remainingToSubtract = sell.quantity;
+
+        for (const lot of buyLots) {
+            if (remainingToSubtract <= 0) break;
+
+            const subtractFromThisLot = Math.min(lot.remaining, remainingToSubtract);
+            lot.remaining -= subtractFromThisLot;
+            remainingToSubtract -= subtractFromThisLot;
+        }
+    });
+
+    // Filter to lots with remaining quantity
+    buyLots.forEach((lot, index) => {
+        if (lot.remaining > 0) {
+            availableLots.push({
+                lotIndex: index,
+                id: lot.id,
+                date: lot.date,
+                price: lot.price,
+                originalQuantity: lot.quantity,
+                availableQuantity: lot.remaining,
+                daysHeld: Math.floor((sellDate - lot.date) / (1000 * 60 * 60 * 24)),
+                gainType: Math.floor((sellDate - lot.date) / (1000 * 60 * 60 * 24)) > 365 ? 'long-term' : 'short-term'
+            });
+        }
+    });
+
+    return availableLots;
+}
+
+/**
  * Compare all three tax lot accounting methods
  * Calculates tax liability for each method to help choose the most advantageous
  *
@@ -489,6 +597,146 @@ function clearPortfolio(confirm = false) {
     saveToStorage();
     console.log('Portfolio cleared');
     return true;
+}
+
+// ============================================================================
+// WASH SALE DETECTION
+// ============================================================================
+
+/**
+ * Detect all wash sales in the portfolio
+ * A wash sale occurs when you sell an asset at a loss and buy the same asset
+ * within 30 days before or after the sale
+ * @returns {Array} Array of wash sale detections
+ */
+function detectAllWashSales() {
+    const washSales = [];
+    const sells = portfolio.filter(t => t.type === 'sell').sort((a, b) => a.date - b.date);
+
+    sells.forEach(sell => {
+        const washSale = detectWashSaleForTransaction(sell);
+        if (washSale) {
+            washSales.push(washSale);
+        }
+    });
+
+    return washSales;
+}
+
+/**
+ * Detect wash sale for a specific sell transaction
+ * @param {Object} sellTxn - The sell transaction
+ * @returns {Object|null} Wash sale details or null if not a wash sale
+ */
+function detectWashSaleForTransaction(sellTxn) {
+    // Get all buys for this symbol
+    const buys = portfolio
+        .filter(t => t.type === 'buy' && t.symbol === sellTxn.symbol)
+        .sort((a, b) => a.date - b.date);
+
+    // Calculate cost basis for this sell using FIFO
+    let remainingToSell = sellTxn.quantity;
+    let totalCost = 0;
+    const lotsUsed = [];
+
+    for (const buy of buys) {
+        if (remainingToSell <= 0) break;
+        if (buy.date > sellTxn.date) break; // Can't use future buys
+
+        const quantityFromThisLot = Math.min(remainingToSell, buy.quantity);
+        totalCost += quantityFromThisLot * buy.price;
+        lotsUsed.push({
+            buyDate: buy.date,
+            buyPrice: buy.price,
+            quantity: quantityFromThisLot
+        });
+        remainingToSell -= quantityFromThisLot;
+    }
+
+    const proceeds = sellTxn.quantity * sellTxn.price;
+    const gainLoss = proceeds - totalCost;
+
+    // Only check for wash sale if there's a loss
+    if (gainLoss >= 0) {
+        return null;
+    }
+
+    // Find replacement shares within 30-day window
+    const windowStart = new Date(sellTxn.date);
+    windowStart.setDate(windowStart.getDate() - 30);
+    const windowEnd = new Date(sellTxn.date);
+    windowEnd.setDate(windowEnd.getDate() + 30);
+
+    const replacementBuys = portfolio.filter(t =>
+        t.type === 'buy' &&
+        t.symbol === sellTxn.symbol &&
+        t.date >= windowStart &&
+        t.date <= windowEnd &&
+        t.date.getTime() !== sellTxn.date.getTime() // Exclude same-day (already counted in cost basis)
+    );
+
+    if (replacementBuys.length === 0) {
+        return null; // No wash sale - no replacement shares purchased
+    }
+
+    // Calculate disallowed loss
+    const totalReplacementShares = replacementBuys.reduce((sum, b) => sum + b.quantity, 0);
+    const lossAmount = Math.abs(gainLoss);
+    const disallowedLoss = Math.min(lossAmount, Math.min(sellTxn.quantity, totalReplacementShares) * (lossAmount / sellTxn.quantity));
+
+    return {
+        sellTransaction: sellTxn,
+        sellDate: sellTxn.date,
+        symbol: sellTxn.symbol,
+        quantity: sellTxn.quantity,
+        salePrice: sellTxn.price,
+        costBasis: totalCost,
+        proceeds: proceeds,
+        totalLoss: lossAmount,
+        disallowedLoss: disallowedLoss,
+        allowedLoss: lossAmount - disallowedLoss,
+        replacementBuys: replacementBuys.map(b => ({
+            date: b.date,
+            quantity: b.quantity,
+            price: b.price,
+            daysFromSale: Math.abs(Math.floor((b.date - sellTxn.date) / (1000 * 60 * 60 * 24)))
+        })),
+        adjustedCostBasis: totalReplacementShares > 0 ? disallowedLoss / totalReplacementShares : 0
+    };
+}
+
+/**
+ * Check if a specific transaction is involved in a wash sale
+ * @param {string} transactionId - Transaction ID
+ * @returns {Object|null} Wash sale details or null
+ */
+function isWashSale(transactionId) {
+    const txn = getTransactionById(transactionId);
+    if (!txn || txn.type !== 'sell') return null;
+
+    return detectWashSaleForTransaction(txn);
+}
+
+/**
+ * Get all wash sale flags for portfolio table display
+ * @returns {Map} Map of transaction ID to wash sale flag
+ */
+function getWashSaleFlags() {
+    const flags = new Map();
+    const washSales = detectAllWashSales();
+
+    washSales.forEach(ws => {
+        if (ws.sellTransaction.id) {
+            flags.set(ws.sellTransaction.id, {
+                isWashSale: true,
+                disallowedLoss: ws.disallowedLoss,
+                allowedLoss: ws.allowedLoss,
+                totalLoss: ws.totalLoss
+            });
+        }
+    });
+
+    return flags;
 }
 
 // ============================================================================
