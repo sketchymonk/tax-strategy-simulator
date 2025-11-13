@@ -12,22 +12,102 @@
     <div class="container">
         <header>
             <h1>Tax Strategy Simulator</h1>
-            <p class="subtitle">Hello World - Initial Setup</p>
+            <p class="disclaimer">⚠️ For educational purposes only. Consult a tax professional.</p>
         </header>
 
         <main>
-            <div class="welcome-message">
-                <h2>Welcome!</h2>
-                <p>The Tax Strategy Simulator is loading...</p>
-                <p id="status">Checking JavaScript...</p>
-            </div>
+            <!-- Input Section -->
+            <section id="input-section">
+                <h2>Add Transactions</h2>
+                <form id="transaction-form">
+                    <input type="date" id="txn-date" required>
+                    <select id="txn-type" required>
+                        <option value="buy">Buy</option>
+                        <option value="sell">Sell</option>
+                    </select>
+                    <input type="text" id="txn-symbol" placeholder="Symbol (e.g., BTC)" required>
+                    <input type="number" id="txn-quantity" placeholder="Quantity" step="0.00000001" required>
+                    <input type="number" id="txn-price" placeholder="Price per unit" step="0.01" required>
+                    <button type="submit">Add Transaction</button>
+                </form>
+                <button id="load-example" class="secondary-btn">Load Example Portfolio</button>
+                <button id="clear-portfolio" class="danger-btn">Clear Portfolio</button>
+            </section>
+
+            <!-- Portfolio Display -->
+            <section id="portfolio-section">
+                <h2>Your Portfolio</h2>
+                <div id="portfolio-empty" class="empty-state">
+                    <p>No transactions yet. Add your first transaction above!</p>
+                </div>
+                <table id="portfolio-table" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Symbol</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portfolio-tbody"></tbody>
+                </table>
+            </section>
+
+            <!-- Analysis Section -->
+            <section id="analysis-section">
+                <h2>Tax Strategy Analysis</h2>
+                <form id="analysis-form">
+                    <div class="form-row">
+                        <input type="text" id="sell-symbol" placeholder="Symbol to analyze" required>
+                        <input type="number" id="sell-quantity" placeholder="Quantity to sell" step="0.00000001" required>
+                    </div>
+                    <div class="form-row">
+                        <input type="number" id="sell-price" placeholder="Sell price" step="0.01" required>
+                        <input type="date" id="sell-date" required>
+                    </div>
+                    <div class="form-row">
+                        <input type="number" id="short-term-rate" placeholder="Short-term tax rate (e.g., 0.32)" step="0.01" value="0.32" required>
+                        <input type="number" id="long-term-rate" placeholder="Long-term tax rate (e.g., 0.15)" step="0.01" value="0.15" required>
+                    </div>
+                    <button type="submit">Calculate Tax Scenarios</button>
+                </form>
+            </section>
+
+            <!-- Results Display -->
+            <section id="results-section" style="display:none;">
+                <h2>Results</h2>
+                <div class="results-grid">
+                    <div class="result-card" id="fifo-card">
+                        <h3>FIFO <span class="method-label">(First In, First Out)</span></h3>
+                        <div class="result-content"></div>
+                    </div>
+                    <div class="result-card" id="lifo-card">
+                        <h3>LIFO <span class="method-label">(Last In, First Out)</span></h3>
+                        <div class="result-content"></div>
+                    </div>
+                    <div class="result-card" id="hifo-card">
+                        <h3>HIFO <span class="method-label">(Highest In, First Out)</span></h3>
+                        <div class="result-content"></div>
+                    </div>
+                </div>
+                <div id="recommendation"></div>
+                <div id="tax-lots-details"></div>
+                <div class="chart-container">
+                    <canvas id="comparison-chart"></canvas>
+                </div>
+            </section>
         </main>
 
         <footer>
-            <p>Tax Strategy Simulator v0.1.0</p>
+            <p>Tax Strategy Simulator v1.0.0 | Browser-based | Data stored locally</p>
         </footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="calculator.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
