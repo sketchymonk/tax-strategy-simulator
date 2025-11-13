@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
     clearPortfolioBtn.addEventListener('click', handleClearPortfolio);
 
     console.log('Event listeners attached');
+    console.log(`Portfolio loaded with ${portfolio.length} transactions`);
 });
 
 // ============================================================================
@@ -68,13 +69,29 @@ function handleTransactionSubmit(e) {
     // Get form values
     const date = document.getElementById('txn-date').value;
     const type = document.getElementById('txn-type').value;
-    const symbol = document.getElementById('txn-symbol').value;
-    const quantity = document.getElementById('txn-quantity').value;
-    const price = document.getElementById('txn-price').value;
+    const symbol = document.getElementById('txn-symbol').value.trim();
+    const quantity = parseFloat(document.getElementById('txn-quantity').value);
+    const price = parseFloat(document.getElementById('txn-price').value);
 
     // Validate inputs
     if (!date || !symbol || !quantity || !price) {
         showNotification('Please fill in all fields', 'error');
+        return;
+    }
+
+    // Validate positive numbers
+    if (quantity <= 0 || price <= 0) {
+        showNotification('Quantity and price must be positive numbers', 'error');
+        return;
+    }
+
+    // Validate date is not in future
+    const txnDate = new Date(date);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+
+    if (txnDate > today) {
+        showNotification('Transaction date cannot be in the future', 'error');
         return;
     }
 
@@ -114,7 +131,7 @@ function refreshPortfolioDisplay() {
     const sortedPortfolio = [...portfolio].sort((a, b) => b.date - a.date);
 
     // Add rows for each transaction
-    sortedPortfolio.forEach((txn, index) => {
+    sortedPortfolio.forEach((txn) => {
         const row = document.createElement('tr');
         row.className = txn.type === 'buy' ? 'buy-row' : 'sell-row';
 
@@ -127,7 +144,7 @@ function refreshPortfolioDisplay() {
             <td>${formatNumber(txn.quantity)}</td>
             <td>$${formatNumber(txn.price)}</td>
             <td>$${formatNumber(total)}</td>
-            <td><button class="delete-btn" data-index="${portfolio.indexOf(txn)}">Delete</button></td>
+            <td><button class="delete-btn danger-btn" data-index="${portfolio.indexOf(txn)}">Delete</button></td>
         `;
 
         portfolioTbody.appendChild(row);
@@ -166,17 +183,13 @@ function loadExamplePortfolio() {
     // Clear existing portfolio
     clearPortfolio(true);
 
-    // Add example transactions
-    addTransaction('2023-01-15', 'buy', 'BTC', 1.5, 20000);
-    addTransaction('2023-03-20', 'buy', 'BTC', 0.5, 25000);
-    addTransaction('2023-06-10', 'buy', 'BTC', 2.0, 30000);
-    addTransaction('2024-01-15', 'buy', 'BTC', 1.0, 45000);
-    addTransaction('2023-02-10', 'buy', 'ETH', 10, 1500);
-    addTransaction('2023-08-15', 'buy', 'ETH', 5, 1800);
-    addTransaction('2024-03-01', 'buy', 'ETH', 8, 3000);
+    // Add example transactions as specified
+    addTransaction('2024-01-15', 'buy', 'BTC', 0.5, 45000);
+    addTransaction('2024-06-20', 'buy', 'BTC', 0.3, 60000);
+    addTransaction('2024-08-10', 'buy', 'BTC', 0.2, 52000);
 
     refreshPortfolioDisplay();
-    showNotification('Example portfolio loaded! Try analyzing BTC or ETH.', 'success');
+    showNotification('Example portfolio loaded! Try analyzing: sell 0.4 BTC at $55,000', 'success');
 }
 
 /**
@@ -207,12 +220,40 @@ function handleAnalysisSubmit(e) {
     e.preventDefault();
 
     // Get form values
-    const symbol = document.getElementById('sell-symbol').value.toUpperCase();
+    const symbol = document.getElementById('sell-symbol').value.trim().toUpperCase();
     const quantity = parseFloat(document.getElementById('sell-quantity').value);
     const price = parseFloat(document.getElementById('sell-price').value);
-    const date = new Date(document.getElementById('sell-date').value);
+    const dateStr = document.getElementById('sell-date').value;
     const shortTermRate = parseFloat(document.getElementById('short-term-rate').value);
     const longTermRate = parseFloat(document.getElementById('long-term-rate').value);
+
+    // Validate inputs
+    if (!symbol || !quantity || !price || !dateStr || !shortTermRate || !longTermRate) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+
+    // Validate positive numbers
+    if (quantity <= 0 || price <= 0) {
+        showNotification('Quantity and price must be positive numbers', 'error');
+        return;
+    }
+
+    // Validate tax rates (0-1)
+    if (shortTermRate < 0 || shortTermRate > 1 || longTermRate < 0 || longTermRate > 1) {
+        showNotification('Tax rates must be between 0 and 1 (e.g., 0.32 for 32%)', 'error');
+        return;
+    }
+
+    // Validate date is not in future
+    const sellDate = new Date(dateStr);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+
+    if (sellDate > today) {
+        showNotification('Sale date cannot be in the future', 'error');
+        return;
+    }
 
     // Validate symbol exists in portfolio
     const symbolExists = portfolio.some(txn => txn.symbol === symbol && txn.type === 'buy');
@@ -221,9 +262,19 @@ function handleAnalysisSubmit(e) {
         return;
     }
 
+    // Calculate total owned
+    const buys = portfolio.filter(t => t.type === 'buy' && t.symbol === symbol && t.date <= sellDate);
+    const totalOwned = buys.reduce((sum, t) => sum + t.quantity, 0);
+
+    // Validate not selling more than owned
+    if (quantity > totalOwned) {
+        showNotification(`Cannot sell ${quantity} ${symbol}. You only own ${totalOwned.toFixed(8)}`, 'error');
+        return;
+    }
+
     // Calculate using all methods
     try {
-        const comparison = compareAllMethods(symbol, quantity, price, date, {
+        const comparison = compareAllMethods(symbol, quantity, price, sellDate, {
             shortTerm: shortTermRate,
             longTerm: longTermRate
         });
@@ -252,7 +303,7 @@ function displayResults(comparison, symbol, quantity, price) {
     displayMethodResults('lifo', comparison.lifo);
     displayMethodResults('hifo', comparison.hifo);
 
-    // Highlight best method
+    // Highlight best method (lowest tax)
     highlightBestMethod(comparison.bestMethod);
 
     // Display recommendation
@@ -272,8 +323,6 @@ function displayMethodResults(method, results) {
     const card = document.getElementById(`${method}-card`);
     const content = card.querySelector('.result-content');
 
-    const isBest = card.classList.contains('best-method');
-
     content.innerHTML = `
         <div class="result-row">
             <span class="label">Cost Basis:</span>
@@ -291,11 +340,11 @@ function displayMethodResults(method, results) {
         </div>
         <div class="result-row">
             <span class="label">Short-term Gain:</span>
-            <span class="value">${formatNumber(results.shortTermGain)}</span>
+            <span class="value">$${formatNumber(results.shortTermGain)}</span>
         </div>
         <div class="result-row">
             <span class="label">Long-term Gain:</span>
-            <span class="value">${formatNumber(results.longTermGain)}</span>
+            <span class="value">$${formatNumber(results.longTermGain)}</span>
         </div>
         <div class="result-row tax-row">
             <span class="label">Tax Owed:</span>
@@ -312,18 +361,20 @@ function displayMethodResults(method, results) {
 }
 
 /**
- * Highlight the best method card
+ * Highlight the best method card (lowest tax)
  */
 function highlightBestMethod(bestMethod) {
     // Remove previous highlights
     document.querySelectorAll('.result-card').forEach(card => {
         card.classList.remove('best-method');
+        card.classList.remove('best');
     });
 
     // Add highlight to best method
     const bestCard = document.getElementById(`${bestMethod.toLowerCase()}-card`);
     if (bestCard) {
         bestCard.classList.add('best-method');
+        bestCard.classList.add('best'); // Also add 'best' class for CSS compatibility
     }
 }
 
@@ -415,6 +466,7 @@ function displayTaxLots(comparison) {
 
 /**
  * Create comparison chart using Chart.js
+ * Shows Cost Basis, Proceeds, and Tax Owed for each method
  */
 function createComparisonChart(comparison) {
     const ctx = document.getElementById('comparison-chart');
@@ -426,12 +478,9 @@ function createComparisonChart(comparison) {
 
     // Prepare data
     const methods = ['FIFO', 'LIFO', 'HIFO'];
+    const costBasisData = [comparison.fifo.costBasis, comparison.lifo.costBasis, comparison.hifo.costBasis];
+    const proceedsData = [comparison.fifo.proceeds, comparison.lifo.proceeds, comparison.hifo.proceeds];
     const taxData = [comparison.fifo.tax, comparison.lifo.tax, comparison.hifo.tax];
-    const afterTaxData = [
-        comparison.fifo.afterTaxProceeds,
-        comparison.lifo.afterTaxProceeds,
-        comparison.hifo.afterTaxProceeds
-    ];
 
     // Create chart
     comparisonChart = new Chart(ctx, {
@@ -440,17 +489,24 @@ function createComparisonChart(comparison) {
             labels: methods,
             datasets: [
                 {
-                    label: 'Tax Owed',
-                    data: taxData,
-                    backgroundColor: 'rgba(220, 53, 69, 0.8)',
-                    borderColor: 'rgba(220, 53, 69, 1)',
+                    label: 'Cost Basis',
+                    data: costBasisData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.8)', // Blue
+                    borderColor: 'rgba(54, 162, 235, 1)',
                     borderWidth: 2
                 },
                 {
-                    label: 'After-Tax Proceeds',
-                    data: afterTaxData,
-                    backgroundColor: 'rgba(40, 167, 69, 0.8)',
+                    label: 'Proceeds',
+                    data: proceedsData,
+                    backgroundColor: 'rgba(40, 167, 69, 0.8)', // Green
                     borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Tax Owed',
+                    data: taxData,
+                    backgroundColor: 'rgba(220, 53, 69, 0.8)', // Red
+                    borderColor: 'rgba(220, 53, 69, 1)',
                     borderWidth: 2
                 }
             ]
@@ -463,7 +519,8 @@ function createComparisonChart(comparison) {
                     display: true,
                     text: 'Tax Method Comparison',
                     font: {
-                        size: 18
+                        size: 18,
+                        weight: 'bold'
                     }
                 },
                 legend: {
@@ -519,7 +576,7 @@ function formatNumber(num) {
     }
     return num.toLocaleString('en-US', {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 8
     });
 }
 
@@ -530,13 +587,15 @@ function setDefaultDates() {
     const today = new Date().toISOString().split('T')[0];
 
     // Transaction form
-    if (!document.getElementById('txn-date').value) {
-        document.getElementById('txn-date').value = today;
+    const txnDate = document.getElementById('txn-date');
+    if (txnDate && !txnDate.value) {
+        txnDate.value = today;
     }
 
     // Analysis form
-    if (!document.getElementById('sell-date').value) {
-        document.getElementById('sell-date').value = today;
+    const sellDate = document.getElementById('sell-date');
+    if (sellDate && !sellDate.value) {
+        sellDate.value = today;
     }
 }
 
@@ -557,13 +616,13 @@ function showNotification(message, type = 'info') {
         notification.classList.add('show');
     }, 10);
 
-    // Remove after 3 seconds
+    // Remove after 4 seconds
     setTimeout(() => {
         notification.classList.remove('show');
         setTimeout(() => {
             notification.remove();
-        }, 300);
-    }, 3000);
+        }, 400);
+    }, 4000);
 }
 
 // ============================================================================
