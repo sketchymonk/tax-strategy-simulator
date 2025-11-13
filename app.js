@@ -70,10 +70,12 @@ document.addEventListener('DOMContentLoaded', function() {
     createLastSavedIndicator();
     createSearchAndFilterUI();
     createCancelEditButton();
+    initializeAnalytics();
 
     // Load and display existing portfolio
     refreshPortfolioDisplay();
     updateDashboard();
+    updateAnalytics();
 
     // Attach event listeners
     transactionForm.addEventListener('submit', handleTransactionSubmit);
@@ -151,6 +153,7 @@ function handleTransactionSubmit(e) {
     refreshPortfolioDisplay();
     updateDashboard();
     updateLastSavedIndicator();
+    updateAnalytics();
 }
 
 /**
@@ -364,6 +367,7 @@ function handleDeleteTransaction(e) {
             refreshPortfolioDisplay();
             updateDashboard();
             updateLastSavedIndicator();
+            updateAnalytics();
             showNotification('Transaction deleted', 'success');
 
             // If we were editing this transaction, cancel edit mode
@@ -397,6 +401,7 @@ function loadExamplePortfolio() {
     refreshPortfolioDisplay();
     updateDashboard();
     updateLastSavedIndicator();
+    updateAnalytics();
     showNotification('Example portfolio loaded! Try analyzing: sell 0.4 BTC at $55,000', 'success');
 }
 
@@ -414,6 +419,7 @@ function handleClearPortfolio() {
         refreshPortfolioDisplay();
         updateDashboard();
         updateLastSavedIndicator();
+        updateAnalytics();
         resultsSection.style.display = 'none';
         showNotification('Portfolio cleared', 'success');
     }
@@ -708,6 +714,7 @@ function importTransactions(transactions, replaceExisting) {
     refreshPortfolioDisplay();
     updateDashboard();
     updateLastSavedIndicator();
+    updateAnalytics();
 
     const msg = `Imported ${imported} transaction${imported !== 1 ? 's' : ''}${duplicates > 0 ? ` (${duplicates} duplicate${duplicates !== 1 ? 's' : ''} skipped)` : ''}`;
     showNotification(msg, 'success');
@@ -1522,6 +1529,394 @@ function showNotification(message, type = 'info') {
             notification.remove();
         }, 400);
     }, 4000);
+}
+
+// ============================================================================
+// PORTFOLIO ANALYTICS & VISUALIZATIONS
+// ============================================================================
+
+let distributionChart = null;
+let timelineChart = null;
+
+/**
+ * Initialize analytics section with event listeners
+ */
+function initializeAnalytics() {
+    // Chart tab switching
+    document.querySelectorAll('.chart-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const chartType = this.dataset.chart;
+
+            // Update active tab
+            document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+
+            // Update active panel
+            document.querySelectorAll('.chart-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`${chartType}-chart-container`).classList.add('active');
+            document.getElementById(`${chartType}-dashboard-container`)?.classList.add('active');
+
+            // Generate chart if needed
+            if (chartType === 'distribution') {
+                createDistributionChart();
+            } else if (chartType === 'timeline') {
+                createTimelineChart();
+            } else if (chartType === 'aging') {
+                createAgingDashboard();
+            }
+        });
+    });
+}
+
+/**
+ * Update analytics section visibility and content
+ */
+function updateAnalytics() {
+    const analyticsSection = document.getElementById('analytics-section');
+
+    if (portfolio.length === 0) {
+        analyticsSection.style.display = 'none';
+        return;
+    }
+
+    // Show analytics if there are transactions
+    const buys = portfolio.filter(t => t.type === 'buy');
+    if (buys.length > 0) {
+        analyticsSection.style.display = 'block';
+
+        // Generate the active chart
+        const activeChart = document.querySelector('.chart-tab.active')?.dataset.chart || 'distribution';
+        if (activeChart === 'distribution') {
+            createDistributionChart();
+        } else if (activeChart === 'timeline') {
+            createTimelineChart();
+        } else if (activeChart === 'aging') {
+            createAgingDashboard();
+        }
+    } else {
+        analyticsSection.style.display = 'none';
+    }
+}
+
+/**
+ * Create cost basis distribution histogram
+ */
+function createDistributionChart() {
+    const ctx = document.getElementById('distribution-chart');
+    if (!ctx) return;
+
+    // Get all buy transactions
+    const buys = portfolio.filter(t => t.type === 'buy');
+    if (buys.length === 0) return;
+
+    // Determine price bins
+    const prices = buys.map(t => t.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const numBins = Math.min(10, buys.length);
+    const binSize = (maxPrice - minPrice) / numBins || 1;
+
+    // Create bins
+    const bins = Array(numBins).fill(0).map((_, i) => ({
+        min: minPrice + (i * binSize),
+        max: minPrice + ((i + 1) * binSize),
+        count: 0,
+        shortTerm: 0,
+        longTerm: 0
+    }));
+
+    // Classify transactions into bins
+    const today = new Date();
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+
+    buys.forEach(txn => {
+        const binIndex = Math.min(Math.floor((txn.price - minPrice) / binSize), numBins - 1);
+        bins[binIndex].count++;
+
+        const isLongTerm = txn.date <= oneYearAgo;
+        if (isLongTerm) {
+            bins[binIndex].longTerm++;
+        } else {
+            bins[binIndex].shortTerm++;
+        }
+    });
+
+    // Destroy existing chart
+    if (distributionChart) {
+        distributionChart.destroy();
+    }
+
+    // Create chart
+    distributionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: bins.map(b => `$${formatNumber(b.min)} - $${formatNumber(b.max)}`),
+            datasets: [
+                {
+                    label: 'Short-term (<365 days)',
+                    data: bins.map(b => b.shortTerm),
+                    backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                    borderColor: 'rgba(220, 53, 69, 1)',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Long-term (>365 days)',
+                    data: bins.map(b => b.longTerm),
+                    backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Cost Basis Distribution by Holding Period',
+                    font: { size: 16, weight: 'bold' }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y + ' lots';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: 'Price Range'
+                    }
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Lots'
+                    },
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Create timeline scatter plot
+ */
+function createTimelineChart() {
+    const ctx = document.getElementById('timeline-chart');
+    if (!ctx) return;
+
+    const buys = portfolio.filter(t => t.type === 'buy');
+    if (buys.length === 0) return;
+
+    // Prepare data points
+    const today = new Date();
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+
+    const shortTermPoints = [];
+    const longTermPoints = [];
+
+    buys.forEach(txn => {
+        const point = {
+            x: txn.date,
+            y: txn.price,
+            r: Math.max(5, Math.min(20, txn.quantity * 2)) // Size by quantity
+        };
+
+        const isLongTerm = txn.date <= oneYearAgo;
+        if (isLongTerm) {
+            longTermPoints.push(point);
+        } else {
+            shortTermPoints.push(point);
+        }
+    });
+
+    // Destroy existing chart
+    if (timelineChart) {
+        timelineChart.destroy();
+    }
+
+    // Create chart
+    timelineChart = new Chart(ctx, {
+        type: 'bubble',
+        data: {
+            datasets: [
+                {
+                    label: 'Short-term (<365 days)',
+                    data: shortTermPoints,
+                    backgroundColor: 'rgba(220, 53, 69, 0.6)',
+                    borderColor: 'rgba(220, 53, 69, 1)',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Long-term (>365 days)',
+                    data: longTermPoints,
+                    backgroundColor: 'rgba(40, 167, 69, 0.6)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Purchase Timeline (bubble size = quantity)',
+                    font: { size: 16, weight: 'bold' }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const date = new Date(context.parsed.x);
+                            return [
+                                'Date: ' + formatDate(date),
+                                'Price: $' + formatNumber(context.parsed.y),
+                                'Status: ' + context.dataset.label
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'month',
+                        displayFormats: {
+                            month: 'MMM YYYY'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Purchase Date'
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Purchase Price'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + formatNumber(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Create aging dashboard showing lots approaching long-term status
+ */
+function createAgingDashboard() {
+    const container = document.getElementById('aging-dashboard');
+    if (!container) return;
+
+    const buys = portfolio.filter(t => t.type === 'buy');
+    if (buys.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 40px;">No purchase transactions to analyze</p>';
+        return;
+    }
+
+    const today = new Date();
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+
+    // Analyze each lot
+    const lots = buys.map(txn => {
+        const daysHeld = Math.floor((today - txn.date) / (1000 * 60 * 60 * 24));
+        const daysToLongTerm = Math.max(0, 366 - daysHeld);
+        const isLongTerm = daysHeld >= 366;
+        const isApproaching = !isLongTerm && daysToLongTerm <= 30;
+
+        return {
+            ...txn,
+            daysHeld,
+            daysToLongTerm,
+            isLongTerm,
+            isApproaching,
+            longTermDate: new Date(txn.date.getTime() + (366 * 24 * 60 * 60 * 1000))
+        };
+    });
+
+    // Sort: approaching first, then by days to long-term
+    lots.sort((a, b) => {
+        if (a.isLongTerm && !b.isLongTerm) return 1;
+        if (!a.isLongTerm && b.isLongTerm) return -1;
+        return a.daysToLongTerm - b.daysToLongTerm;
+    });
+
+    // Generate HTML
+    let html = '';
+    lots.forEach(lot => {
+        const cardClass = lot.isLongTerm ? 'longterm' : (lot.isApproaching ? 'approaching-longterm' : '');
+        const badgeClass = lot.isLongTerm ? 'badge-longterm' : (lot.isApproaching ? 'badge-approaching' : 'badge-shortterm');
+        const badgeText = lot.isLongTerm ? 'LONG-TERM' : (lot.isApproaching ? 'APPROACHING' : 'SHORT-TERM');
+
+        html += `
+            <div class="aging-lot-card ${cardClass}">
+                <div class="aging-lot-header">
+                    <div class="aging-lot-symbol">${lot.symbol}</div>
+                    <div class="aging-lot-badge ${badgeClass}">${badgeText}</div>
+                </div>
+                <div class="aging-lot-detail">
+                    <span class="label">Purchase Date:</span>
+                    <span class="value">${formatDate(lot.date)}</span>
+                </div>
+                <div class="aging-lot-detail">
+                    <span class="label">Purchase Price:</span>
+                    <span class="value">$${formatNumber(lot.price)}</span>
+                </div>
+                <div class="aging-lot-detail">
+                    <span class="label">Quantity:</span>
+                    <span class="value">${formatNumber(lot.quantity)}</span>
+                </div>
+                <div class="aging-lot-detail">
+                    <span class="label">Days Held:</span>
+                    <span class="value">${lot.daysHeld} days</span>
+                </div>
+                ${!lot.isLongTerm ? `
+                    <div class="aging-countdown">
+                        <div class="days-remaining">${lot.daysToLongTerm}</div>
+                        <div class="label">days until long-term</div>
+                        <div class="label" style="margin-top: 8px;">Becomes long-term: ${formatDate(lot.longTermDate)}</div>
+                    </div>
+                ` : `
+                    <div class="aging-countdown" style="background: #f1f8f4;">
+                        <div class="days-remaining" style="color: #28a745;">✓ Long-term</div>
+                        <div class="label">Qualifies for preferential tax rates</div>
+                    </div>
+                `}
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
 }
 
 // ============================================================================

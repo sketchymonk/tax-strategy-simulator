@@ -89,6 +89,46 @@
                 </table>
             </section>
 
+            <!-- Portfolio Analytics & Visualizations -->
+            <section id="analytics-section" style="display:none;">
+                <h2>Portfolio Analytics</h2>
+                <p class="section-description">
+                    Visual analysis of your portfolio holdings, cost basis distribution, and tax lot aging.
+                </p>
+
+                <!-- Chart Type Selector -->
+                <div class="chart-selector">
+                    <button class="chart-tab active" data-chart="distribution">Cost Basis Distribution</button>
+                    <button class="chart-tab" data-chart="timeline">Timeline View</button>
+                    <button class="chart-tab" data-chart="aging">Tax Lot Aging</button>
+                </div>
+
+                <!-- Cost Basis Distribution Chart -->
+                <div id="distribution-chart-container" class="chart-panel active">
+                    <h3>Cost Basis Distribution</h3>
+                    <p>Shows the distribution of your purchase prices across all lots</p>
+                    <div class="chart-container">
+                        <canvas id="distribution-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Timeline Scatter Chart -->
+                <div id="timeline-chart-container" class="chart-panel">
+                    <h3>Purchase Timeline</h3>
+                    <p>Visual timeline of all purchases with holding period status</p>
+                    <div class="chart-container">
+                        <canvas id="timeline-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Aging Indicator Dashboard -->
+                <div id="aging-dashboard-container" class="chart-panel">
+                    <h3>Tax Lot Aging Dashboard</h3>
+                    <p>Track when your lots qualify for long-term capital gains treatment</p>
+                    <div id="aging-dashboard"></div>
+                </div>
+            </section>
+
             <!-- Analysis Section -->
             <section id="analysis-section">
                 <h2>Tax Strategy Analysis</h2>

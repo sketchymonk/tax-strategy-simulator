@@ -338,6 +338,171 @@ th[style*="cursor: pointer"]:hover {
     background: #5568d3;
 }
 
+/* Portfolio Analytics Section */
+#analytics-section {
+    margin: 40px 0;
+}
+
+.chart-selector {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.chart-tab {
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    min-width: 180px;
+}
+
+.chart-tab:hover {
+    background: #e9ecef;
+    border-color: #667eea;
+}
+
+.chart-tab.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+}
+
+.chart-panel {
+    display: none;
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    border: 2px solid #e9ecef;
+    margin-top: 20px;
+}
+
+.chart-panel.active {
+    display: block;
+}
+
+.chart-panel h3 {
+    color: #667eea;
+    margin-bottom: 10px;
+}
+
+.chart-panel p {
+    color: #6c757d;
+    margin-bottom: 20px;
+}
+
+.chart-container {
+    position: relative;
+    height: 400px;
+    margin: 20px 0;
+}
+
+/* Aging Dashboard Specific Styles */
+#aging-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.aging-lot-card {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 15px;
+    transition: all 0.3s;
+}
+
+.aging-lot-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.aging-lot-card.approaching-longterm {
+    border-color: #ffc107;
+    background: #fff8e1;
+}
+
+.aging-lot-card.longterm {
+    border-color: #28a745;
+    background: #f1f8f4;
+}
+
+.aging-lot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.aging-lot-symbol {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.aging-lot-badge {
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge-shortterm {
+    background: #dc3545;
+    color: white;
+}
+
+.badge-approaching {
+    background: #ffc107;
+    color: #333;
+}
+
+.badge-longterm {
+    background: #28a745;
+    color: white;
+}
+
+.aging-lot-detail {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 0.9rem;
+}
+
+.aging-lot-detail .label {
+    color: #666;
+}
+
+.aging-lot-detail .value {
+    font-weight: 600;
+    color: #333;
+}
+
+.aging-countdown {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.aging-countdown .days-remaining {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.aging-countdown .label {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 5px;
+}
+
 /* Wash Sale Indicators */
 .wash-sale-badge {
     display: inline-block;
@@ -940,6 +1105,28 @@ footer {
     .filter-group {
         width: 100%;
         min-width: 100%;
+    }
+
+    /* Analytics charts responsive */
+    .chart-selector {
+        flex-direction: column;
+    }
+
+    .chart-tab {
+        width: 100%;
+        min-width: 100%;
+    }
+
+    .chart-container {
+        height: 300px;
+    }
+
+    #aging-dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .aging-lot-card {
+        padding: 12px;
     }
 }
 
