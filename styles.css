@@ -1,6 +1,5 @@
 /* ============================================================================
-   Tax Strategy Simulator - iPad-Optimized Styles
-   Clean, modern design with smooth transitions and excellent contrast
+   Tax Strategy Simulator - Clean iPad-Optimized Design
    ============================================================================ */
 
 /* Reset and Base Styles */
@@ -13,11 +12,9 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    background-attachment: fixed;
     padding: 20px;
     min-height: 100vh;
     line-height: 1.6;
-    color: #333;
 }
 
 /* Container */
@@ -28,25 +25,26 @@ body {
     border-radius: 20px;
     padding: 40px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    animation: fadeIn 0.5s ease-in;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Header */
-header {
-    margin-bottom: 30px;
-}
-
 h1 {
     color: #333;
     margin-bottom: 10px;
     text-align: center;
     font-size: 2.5rem;
-    font-weight: 700;
+}
+
+h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+    font-size: 1.75rem;
+}
+
+h3 {
+    color: #667eea;
+    font-size: 1.3rem;
+    margin-bottom: 15px;
 }
 
 .disclaimer {
@@ -66,21 +64,6 @@ section {
     padding: 25px;
     border-radius: 15px;
     background: #f8f9fa;
-    border: 1px solid #e9ecef;
-    transition: box-shadow 0.3s ease;
-}
-
-section:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-h2 {
-    color: #667eea;
-    margin-bottom: 20px;
-    font-size: 1.75rem;
-    font-weight: 600;
-    padding-bottom: 10px;
-    border-bottom: 3px solid #667eea;
 }
 
 /* Forms */
@@ -88,70 +71,54 @@ form {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-bottom: 15px;
 }
 
 .form-row {
     display: flex;
-    flex-wrap: wrap;
     gap: 10px;
     width: 100%;
 }
 
 input, select {
-    padding: 12px 15px;
+    padding: 12px;
     margin: 5px;
     border: 2px solid #ddd;
     border-radius: 8px;
     font-size: 16px;
     min-height: 44px; /* iPad touch target */
     flex: 1;
-    min-width: 150px;
-    transition: all 0.3s ease;
-    background: white;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
 
 input:focus, select:focus {
     outline: none;
     border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-    transform: translateY(-1px);
-}
-
-input:hover, select:hover {
-    border-color: #aaa;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 /* Buttons */
 button {
     padding: 12px 20px;
     margin: 5px;
-    border: none;
+    border: 2px solid #ddd;
     border-radius: 8px;
     font-size: 16px;
     min-height: 44px; /* iPad touch target */
     background: #667eea;
     color: white;
+    border: none;
     cursor: pointer;
     font-weight: bold;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    transition: background 0.3s, transform 0.2s;
 }
 
 button:hover {
     background: #5568d3;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 button:active {
     transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
-}
-
-button[type="submit"] {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-width: 180px;
 }
 
 .secondary-btn {
@@ -174,22 +141,13 @@ button[type="submit"] {
     padding: 8px 12px;
     font-size: 14px;
     min-height: auto;
-    background: #dc3545;
-}
-
-.delete-btn:hover {
-    background: #c82333;
 }
 
 /* Portfolio Table */
 .empty-state {
     text-align: center;
-    padding: 60px 20px;
+    padding: 40px;
     color: #6c757d;
-    font-size: 1.2rem;
-    background: white;
-    border-radius: 10px;
-    border: 2px dashed #ddd;
 }
 
 table {
@@ -199,34 +157,26 @@ table {
     background: white;
     border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 th, td {
-    padding: 15px 12px;
+    padding: 12px;
     text-align: left;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid #ddd;
 }
 
 th {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #667eea;
     color: white;
     font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    letter-spacing: 0.5px;
 }
 
 tbody tr {
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s;
 }
 
 tbody tr:hover {
     background-color: #f8f9fa;
-}
-
-tbody tr:last-child td {
-    border-bottom: none;
 }
 
 .buy-row {
@@ -240,36 +190,31 @@ tbody tr:last-child td {
 /* Badges */
 .badge {
     display: inline-block;
-    padding: 5px 12px;
+    padding: 4px 10px;
     border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
 
 .badge-buy {
     background: #d4edda;
     color: #155724;
-    border: 1px solid #c3e6cb;
 }
 
 .badge-sell {
     background: #f8d7da;
     color: #721c24;
-    border: 1px solid #f5c6cb;
 }
 
 .badge-short-term {
     background: #fff3cd;
     color: #856404;
-    border: 1px solid #ffeaa7;
 }
 
 .badge-long-term {
     background: #d1ecf1;
     color: #0c5460;
-    border: 1px solid #bee5eb;
 }
 
 /* Results Grid */
@@ -285,8 +230,7 @@ tbody tr:last-child td {
     border-radius: 15px;
     background: white;
     border: 3px solid #ddd;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
+    transition: transform 0.3s, box-shadow 0.3s;
 }
 
 .result-card:hover {
@@ -296,25 +240,13 @@ tbody tr:last-child td {
 
 .result-card.best-method {
     border-color: #28a745;
-    background: linear-gradient(to bottom, #d4edda 0%, white 25%);
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-}
-
-.result-card h3 {
-    color: #667eea;
-    margin-bottom: 15px;
-    font-size: 1.5rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    background: #d4edda;
 }
 
 .method-label {
     font-size: 0.7rem;
     color: #6c757d;
     font-weight: normal;
-    text-transform: none;
 }
 
 .result-content {
@@ -324,8 +256,7 @@ tbody tr:last-child td {
 .result-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
+    padding: 8px 0;
     border-bottom: 1px solid #f0f0f0;
 }
 
@@ -335,29 +266,25 @@ tbody tr:last-child td {
 
 .result-row.highlight {
     background: #f8f9fa;
+    padding: 10px;
     margin: 5px -10px;
-    padding: 12px 10px;
-    border-radius: 8px;
+    border-radius: 5px;
     font-weight: 600;
-    border: 2px solid #e9ecef;
 }
 
 .result-row.tax-row {
     background: #fff3cd;
+    padding: 10px;
     margin: 5px -10px;
-    padding: 12px 10px;
-    border-radius: 8px;
-    border: 2px solid #ffc107;
+    border-radius: 5px;
 }
 
 .result-row .label {
     color: #6c757d;
-    font-size: 0.95rem;
 }
 
 .result-row .value {
     font-weight: 600;
-    font-size: 1.1rem;
 }
 
 .value.positive {
@@ -370,57 +297,46 @@ tbody tr:last-child td {
 
 .value.tax-amount {
     color: #dc3545;
-    font-size: 1.3rem;
-    font-weight: 700;
+    font-size: 1.2rem;
 }
 
 .tax-lots-count {
     margin-top: 15px;
     padding-top: 15px;
     border-top: 2px solid #e9ecef;
+    text-align: center;
     color: #6c757d;
     font-size: 0.9rem;
-    text-align: center;
 }
 
-/* Recommendation Box */
+/* Recommendation */
 #recommendation {
-    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-    border: 3px solid #28a745;
+    background: #d1ecf1;
+    border: 3px solid #17a2b8;
     padding: 25px;
     border-radius: 15px;
     margin-bottom: 20px;
     font-size: 18px;
     font-weight: bold;
-    color: #155724;
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
-    animation: slideIn 0.5s ease-out;
-}
-
-@keyframes slideIn {
-    from { opacity: 0; transform: translateX(-20px); }
-    to { opacity: 1; transform: translateX(0); }
+    color: #0c5460;
 }
 
 .recommendation-box {
-    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    background: #d4edda;
     border: 3px solid #28a745;
     padding: 25px;
     border-radius: 15px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
 }
 
 .recommendation-box h3 {
     color: #155724;
-    font-size: 1.75rem;
-    margin-bottom: 15px;
 }
 
 .best-method-text {
     font-size: 1.2rem;
     color: #155724;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .savings-highlight {
@@ -428,15 +344,13 @@ tbody tr:last-child td {
     padding: 20px;
     border-radius: 10px;
     text-align: center;
-    margin: 20px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin: 15px 0;
 }
 
 .savings-amount {
     font-size: 2.5rem;
     font-weight: bold;
     color: #28a745;
-    margin-bottom: 5px;
 }
 
 .savings-percent {
@@ -455,42 +369,30 @@ tbody tr:last-child td {
     background: white;
     padding: 15px;
     border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .tax-summary-item .label {
     color: #6c757d;
     font-size: 0.9rem;
-    margin-bottom: 5px;
 }
 
 .tax-summary-item .value {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: bold;
     color: #333;
 }
 
 /* Tax Lots Details */
-#tax-lots-details {
-    margin-top: 30px;
-}
-
 .tax-lots-section {
     padding: 25px;
     background: white;
     border-radius: 15px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.tax-lots-section h3 {
-    color: #667eea;
-    margin-bottom: 20px;
-    font-size: 1.5rem;
+    margin-top: 20px;
 }
 
 .tax-lots-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 15px;
 }
 
@@ -499,29 +401,25 @@ tbody tr:last-child td {
     border: 2px solid #e9ecef;
     border-radius: 10px;
     padding: 15px;
-    transition: all 0.3s ease;
+    transition: border-color 0.3s;
 }
 
 .tax-lot-card:hover {
     border-color: #667eea;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-    transform: translateY(-2px);
 }
 
 .lot-header {
     font-weight: bold;
     color: #667eea;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     padding-bottom: 8px;
     border-bottom: 2px solid #667eea;
-    font-size: 1.1rem;
 }
 
 .lot-detail {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
+    padding: 5px 0;
     font-size: 0.9rem;
 }
 
@@ -531,15 +429,13 @@ tbody tr:last-child td {
 
 .lot-detail .value {
     font-weight: 600;
-    color: #333;
 }
 
 .lot-detail.highlight {
     background: white;
-    margin: 8px -10px 0;
-    padding: 10px;
-    border-radius: 8px;
-    border: 2px solid #e9ecef;
+    padding: 8px;
+    margin: 5px -8px 0;
+    border-radius: 5px;
 }
 
 /* Chart Container */
@@ -548,7 +444,6 @@ tbody tr:last-child td {
     padding: 25px;
     background: white;
     border-radius: 15px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 #comparison-chart {
@@ -561,15 +456,13 @@ tbody tr:last-child td {
     top: 20px;
     right: -400px;
     background: white;
-    padding: 18px 24px;
+    padding: 15px 20px;
     border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     z-index: 1000;
-    min-width: 320px;
-    max-width: 400px;
-    transition: right 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    border-left: 5px solid #667eea;
-    font-weight: 500;
+    min-width: 300px;
+    transition: right 0.4s ease;
+    border-left: 4px solid #667eea;
 }
 
 .notification.show {
@@ -590,60 +483,18 @@ tbody tr:last-child td {
 
 /* Footer */
 footer {
-    margin-top: 40px;
-    padding: 20px;
+    margin-top: 30px;
+    padding: 20px 0;
     text-align: center;
     color: #6c757d;
-    font-size: 0.9rem;
     border-top: 2px solid #e9ecef;
 }
 
-/* Loading States */
-.loading {
-    opacity: 0.6;
-    pointer-events: none;
-    position: relative;
-}
-
-.loading::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 40px;
-    height: 40px;
-    margin: -20px 0 0 -20px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #667eea;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
 /* ============================================================================
-   RESPONSIVE DESIGN - iPad & Mobile Optimization
+   RESPONSIVE DESIGN - iPad & Mobile
    ============================================================================ */
 
-/* iPad Landscape (1024px and below) */
-@media (max-width: 1024px) {
-    .container {
-        padding: 30px;
-    }
-
-    h1 {
-        font-size: 2.2rem;
-    }
-
-    .results-grid {
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    }
-}
-
-/* iPad Portrait and smaller tablets (768px and below) */
+/* iPad landscape/portrait responsive */
 @media (max-width: 768px) {
     body {
         padding: 15px;
@@ -651,15 +502,10 @@ footer {
 
     .container {
         padding: 25px;
-        border-radius: 15px;
     }
 
     h1 {
-        font-size: 1.9rem;
-    }
-
-    h2 {
-        font-size: 1.5rem;
+        font-size: 2rem;
     }
 
     section {
@@ -683,10 +529,6 @@ footer {
         font-size: 0.9rem;
     }
 
-    th, td {
-        padding: 10px 8px;
-    }
-
     .tax-summary {
         grid-template-columns: 1fr;
     }
@@ -698,14 +540,9 @@ footer {
     .savings-amount {
         font-size: 2rem;
     }
-
-    .notification {
-        min-width: 280px;
-        max-width: calc(100% - 40px);
-    }
 }
 
-/* Mobile phones (480px and below) */
+/* Mobile phones */
 @media (max-width: 480px) {
     body {
         padding: 10px;
@@ -713,7 +550,7 @@ footer {
 
     .container {
         padding: 20px;
-        border-radius: 12px;
+        border-radius: 15px;
     }
 
     h1 {
@@ -721,7 +558,11 @@ footer {
     }
 
     h2 {
-        font-size: 1.3rem;
+        font-size: 1.4rem;
+    }
+
+    .disclaimer {
+        font-size: 0.9rem;
     }
 
     section {
@@ -729,67 +570,16 @@ footer {
         margin-bottom: 25px;
     }
 
-    .disclaimer {
-        font-size: 0.9rem;
-        padding: 12px;
-    }
-
-    input, select, button {
-        font-size: 15px;
-        padding: 10px;
-    }
-
     table {
         display: block;
         overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
     }
 
     .result-card {
         padding: 18px;
     }
 
-    .result-card h3 {
-        font-size: 1.3rem;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 5px;
-    }
-
-    .method-label {
-        font-size: 0.65rem;
-    }
-
     .savings-amount {
         font-size: 1.8rem;
-    }
-
-    #comparison-chart {
-        max-height: 300px;
-    }
-}
-
-/* Print Styles */
-@media print {
-    body {
-        background: white;
-        padding: 0;
-    }
-
-    .container {
-        box-shadow: none;
-        padding: 20px;
-    }
-
-    button, .delete-btn, .secondary-btn, .danger-btn {
-        display: none;
-    }
-
-    .notification {
-        display: none;
-    }
-
-    section {
-        page-break-inside: avoid;
     }
 }
